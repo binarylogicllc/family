@@ -62,7 +62,20 @@ const FAMILY = {
 };
 
 // ── Auth / GitHub ─────────────────────────────────────────
-const PASSWORD_HASH = "16dea2b1c492b2f0489fc18d2a60e3ef661d4dd71e3bcf7d0f7ce707351ba6e1";
+const PASSWORD_HASH   = "16dea2b1c492b2f0489fc18d2a60e3ef661d4dd71e3bcf7d0f7ce707351ba6e1";
+const ENCRYPTED_CFG   = "rHRxyuI/tXAAEe1M7zR5Gl34BnLiJEOyAWhBfGAZM9H0ROmpWKMSHRx/UR89wdnJj6jzUmNWuFYSFS5Rk8UrjRgCtsmYDq1sLT5Emwte7qmBL7Boj9aJmEG66qvt97enr1KBnQ2xXl9CrpQHSwSO+VsfiPjsdgerSDJbBPBfY7BvnCnXmn+EAmtH0zWMHA==";  // AES-GCM encrypted with password-derived key
+
+// Decrypt GitHub config using the login password
+async function decryptCfg(password) {
+  const enc   = Uint8Array.from(atob(ENCRYPTED_CFG), c=>c.charCodeAt(0));
+  const salt  = enc.slice(0,16);
+  const iv    = enc.slice(16,28);
+  const data  = enc.slice(28);
+  const km    = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
+  const key   = await crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:100000,hash:"SHA-256"}, km, {name:"AES-GCM",length:256}, false, ["decrypt"]);
+  const plain = await crypto.subtle.decrypt({name:"AES-GCM",iv}, key, data);
+  return JSON.parse(new TextDecoder().decode(plain));
+}
 const DATA_FILE = "inheritance_data.xml";
 
 const LS = {
@@ -356,9 +369,11 @@ function LoginScreen({onLogin}){
   const [pw,setPw]=useState(""),[err,setErr]=useState(""),[show,setShow]=useState(false),[busy,setBusy]=useState(false);
   async function attempt(){
     if(!pw)return; setBusy(true);
-    const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pw));
-    const hash=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
-    if(hash===PASSWORD_HASH){onLogin();}else{setErr("Incorrect password.");setPw("");}
+    try{
+      const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pw));
+      const hash=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+      if(hash===PASSWORD_HASH){await onLogin(pw);}else{setErr("Incorrect password.");setPw("");}
+    }catch(e){setErr("Error: "+e.message);}
     setBusy(false);
   }
   return(
@@ -430,7 +445,7 @@ function GHSettings({cfg,onSave,onBack}){
 // ══════════════════════════════════════════════════════════
 function App(){
   const [authed, setAuthed] = useState(()=>LS.get("inh_auth",false));
-  const [cfg,    setCfg]    = useState(()=>LS.get("gh_cfg",{}));
+  const [cfg,    setCfg]    = useState(()=>LS.get("gh_cfg_dec",{})); // decrypted at login
   const [showCfg,setShowCfg]= useState(false);
   const [step,   setStep]   = useState(1);
 
@@ -454,7 +469,7 @@ function App(){
   const [lLoc, setLLoc] =useState("");
   const [editL,setEditL]=useState(null);
 
-  const isConfigured = !!(cfg.token && cfg.owner && cfg.repo);
+  const isConfigured = !!(cfg && cfg.token); // always true after login
   const estateNum = useMemo(()=>lands.reduce((s,l)=>s+l.value,0),[lands]);
 
   // Build flat heirs array for calculations
@@ -466,7 +481,13 @@ function App(){
     return h;
   },[names]);
 
-  function login(){ setAuthed(true); LS.set("inh_auth",true); }
+  async function login(pw){ 
+    const decrypted = await decryptCfg(pw);
+    setCfg(decrypted);
+    LS.set("gh_cfg_dec", decrypted);  // cache decrypted cfg in localStorage
+    setAuthed(true);
+    LS.set("inh_auth",true);
+  }
   function logout(){ setAuthed(false); LS.set("inh_auth",false); }
 
   // Load from GitHub on start
@@ -529,7 +550,6 @@ function App(){
   },[allHeirs,lands,landAllocs,estateNum]);
 
   if(!authed) return <LoginScreen onLogin={login}/>;
-  if(!isConfigured||showCfg) return <GHSettings cfg={cfg} onSave={c=>{LS.set("gh_cfg",c);setCfg(c);setShowCfg(false);}} onBack={isConfigured?()=>setShowCfg(false):null}/>;
 
   return(
     <div style={{background:"#FAF6EF",minHeight:"100vh",paddingBottom:60}}>
@@ -541,13 +561,13 @@ function App(){
             <span style={{fontSize:22}}>🕌</span>
             <div>
               <div style={{fontWeight:800,fontSize:16}}>Family Inheritance</div>
-              <div style={{fontSize:10,color:"#A8907A"}}>حساب الميراث · 1 Wife · 6 Sons · 4 Daughters</div>
+              <div style={{fontSize:10,color:"#A8907A"}}>حساب الميراث · Family · Oman</div>
             </div>
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
             <SyncBadge status={sync} err={syncErr}/>
             {step===2&&results&&<Btn sm v="print" onClick={()=>setShowPrint(true)}>🖨️ Print</Btn>}
-            <Btn sm v="grey" onClick={()=>setShowCfg(true)}>⚙️</Btn>
+
             <Btn sm v="ghost" onClick={logout}>🔒</Btn>
           </div>
         </div>

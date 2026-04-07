@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <inheritance>
-  <family wife="" estate="0">
+  <family wife="Alia Al-Hadhrami" estate="0">
     <sons><son i="0" name=""/><son i="1" name=""/><son i="2" name=""/><son i="3" name=""/><son i="4" name=""/><son i="5" name=""/></sons>
     <daughters><daughter i="0" name=""/><daughter i="1" name=""/><daughter i="2" name=""/><daughter i="3" name=""/></daughters>
   </family>

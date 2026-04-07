@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Islamic Inheritance Divider — حساب الميراث</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#FAF6EF;font-family:'Segoe UI',system-ui,sans-serif;color:#2A2018}
+  input,select,button{font-family:inherit}
+  input:focus,select:focus{outline:2px solid #B03818;outline-offset:1px}
+  table{border-collapse:collapse}
+  @media(max-width:600px){
+    .hide-mobile{display:none!important}
+    .stack-mobile{flex-direction:column!important}
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useMemo } = React;
+
+const uid = () => Math.random().toString(36).slice(2, 8);
+const fmtOMR = n => `OMR ${Math.round(n).toLocaleString("en")}`;
+const fmtPct = n => `${(n * 100).toFixed(1)}%`;
+
+const ROLE = {
+  father:   { emoji:"👨",    label:"Father (Surviving)", color:"#2D5FA5", bg:"#EBF2FA", bd:"#90AEDE" },
+  mother:   { emoji:"👩",    label:"Mother (Surviving)", color:"#7040A0", bg:"#F3EEF8", bd:"#BC98E0" },
+  son:      { emoji:"🧑",    label:"Brother",            color:"#2A6840", bg:"#ECF6F0", bd:"#7DC49A" },
+  daughter: { emoji:"👩‍🦱", label:"Sister",             color:"#B03818", bg:"#FAF0EB", bd:"#DA9070" },
+};
+
+function islamicShares(heirs) {
+  const father = heirs.find(h => h.role === "father");
+  const mother = heirs.find(h => h.role === "mother");
+  const sons   = heirs.filter(h => h.role === "son");
+  const daus   = heirs.filter(h => h.role === "daughter");
+  const kids   = [...sons, ...daus];
+  const out = {}; let pool = 1;
+  if (father) { const s = kids.length ? 1/4 : 1/2; out[father.id] = s; pool -= s; }
+  if (mother) { const s = kids.length ? 1/8 : 1/4; out[mother.id] = s; pool -= s; }
+  if (kids.length && pool > 0) {
+    const units = sons.length * 2 + daus.length;
+    sons.forEach(s => { out[s.id] = (2/units)*pool; });
+    daus.forEach(d => { out[d.id] = (1/units)*pool; });
+  }
+  return out;
+}
+
+function divideLand(landVal, intIds, globalShares) {
+  let tw = 0; const ws = {};
+  intIds.forEach(id => { ws[id] = globalShares[id]||0; tw += ws[id]; });
+  const out = {};
+  intIds.forEach(id => { out[id] = tw > 0 ? (ws[id]/tw)*landVal : 0; });
+  return out;
+}
+
+function solveSettlements(heirs, balance) {
+  const P = heirs.filter(h=>balance[h.id]> 1).map(h=>({...h,amt:balance[h.id]}));
+  const R = heirs.filter(h=>balance[h.id]<-1).map(h=>({...h,amt:-balance[h.id]}));
+  const result=[]; let pi=0,ri=0;
+  while(pi<P.length&&ri<R.length){
+    const amt=Math.min(P[pi].amt,R[ri].amt);
+    if(amt>1) result.push({from:P[pi].name,fromRole:P[pi].role,to:R[ri].name,toRole:R[ri].role,amount:amt});
+    P[pi].amt-=amt; R[ri].amt-=amt;
+    if(P[pi].amt<1)pi++; if(R[ri].amt<1)ri++;
+  }
+  return result;
+}
+
+// ── UI primitives ─────────────────────────────────────────
+function Card({children,style={}}) {
+  return <div style={{background:"#fff",borderRadius:12,border:"1px solid #EAE0D0",boxShadow:"0 2px 10px rgba(0,0,0,.05)",padding:20,...style}}>{children}</div>;
+}
+
+function Btn({children,onClick,variant="primary",disabled=false,small=false}) {
+  const base={border:"none",borderRadius:8,cursor:disabled?"not-allowed":"pointer",fontWeight:600,transition:"all .15s",fontSize:small?12:14,padding:small?"6px 14px":"10px 22px",opacity:disabled?.45:1};
+  const v={primary:{background:"#B03818",color:"#fff"},ghost:{background:"transparent",color:"#B03818",border:"1px solid #B03818"},green:{background:"#2A6840",color:"#fff"},soft:{background:"#F5EDE6",color:"#B03818",border:"1px solid #E8C8B8"}};
+  return <button onClick={disabled?undefined:onClick} style={{...base,...v[variant]}}>{children}</button>;
+}
+
+function Input({value,onChange,placeholder,type="text",style={}}) {
+  return <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} type={type}
+    style={{border:"1px solid #E0D4C0",borderRadius:8,padding:"9px 14px",fontSize:14,background:"#FDFAF5",color:"#2A2018",width:"100%",...style}}/>;
+}
+
+function StepBar({current}) {
+  const steps=["Family","Lands","Interests","Results"];
+  return (
+    <div style={{display:"flex",alignItems:"flex-start",marginBottom:28,position:"relative"}}>
+      <div style={{position:"absolute",top:15,left:"8%",right:"8%",height:2,background:"#E8DDD0",zIndex:0}}/>
+      {steps.map((s,i)=>{
+        const n=i+1,done=n<current,active=n===current;
+        return (
+          <div key={s} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flex:1}}>
+            <div style={{width:30,height:30,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,background:done?"#2A6840":active?"#B03818":"#E8DDD0",color:done||active?"#fff":"#A8907A",boxShadow:active?"0 2px 8px rgba(176,56,24,.35)":"none",zIndex:1,position:"relative"}}>
+              {done?"✓":n}
+            </div>
+            <span style={{fontSize:10,fontWeight:active?700:400,color:active?"#2A2018":"#B0907A"}}>{s}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Main App ──────────────────────────────────────────────
+function App() {
+  const [step,setStep]=useState(1);
+  const [heirs,setHeirs]=useState([]);
+  const [lands,setLands]=useState([]);
+  const [interests,setInterests]=useState({});
+  const [hName,setHName]=useState("");
+  const [hRole,setHRole]=useState("son");
+  const [lName,setLName]=useState("");
+  const [lVal,setLVal]=useState("");
+
+  const shares=useMemo(()=>islamicShares(heirs),[heirs]);
+  const totalEstate=useMemo(()=>lands.reduce((s,l)=>s+l.value,0),[lands]);
+
+  function addHeir(){
+    if(!hName.trim())return;
+    if((hRole==="father"||hRole==="mother")&&heirs.find(h=>h.role===hRole))return;
+    setHeirs(p=>[...p,{id:uid(),name:hName.trim(),role:hRole}]);
+    setHName("");
+  }
+  function addLand(){
+    const v=parseFloat(lVal);
+    if(!lName.trim()||isNaN(v)||v<=0)return;
+    setLands(p=>[...p,{id:uid(),name:lName.trim(),value:v}]);
+    setLName("");setLVal("");
+  }
+  function toggleInterest(landId,heirId){
+    setInterests(p=>({...p,[landId]:{...(p[landId]||{}),[heirId]:!(p[landId]?.[heirId])}}));
+  }
+
+  const results=useMemo(()=>{
+    if(!heirs.length||!lands.length)return null;
+    const allocated={};heirs.forEach(h=>{allocated[h.id]=0;});
+    const breakdown={};
+    lands.forEach(land=>{
+      const intIds=Object.entries(interests[land.id]||{}).filter(([,v])=>v).map(([id])=>id);
+      if(!intIds.length){breakdown[land.id]={};return;}
+      const alloc=divideLand(land.value,intIds,shares);
+      breakdown[land.id]=alloc;
+      Object.entries(alloc).forEach(([id,amt])=>{allocated[id]=(allocated[id]||0)+amt;});
+    });
+    const rightful={};heirs.forEach(h=>{rightful[h.id]=(shares[h.id]||0)*totalEstate;});
+    const balance={};heirs.forEach(h=>{balance[h.id]=allocated[h.id]-rightful[h.id];});
+    return{allocated,rightful,balance,settlements:solveSettlements(heirs,balance),breakdown};
+  },[heirs,lands,interests,shares,totalEstate]);
+
+  const sectionLabel={fontSize:11,fontWeight:700,color:"#8A7060",marginBottom:12,textTransform:"uppercase",letterSpacing:".06em"};
+
+  return (
+    <div style={{background:"#FAF6EF",minHeight:"100vh",paddingBottom:60}}>
+      {/* Header */}
+      <div style={{background:"#fff",borderBottom:"1px solid #EAE0D0",padding:"16px 24px",boxShadow:"0 1px 6px rgba(0,0,0,.06)",marginBottom:24}}>
+        <div style={{maxWidth:720,margin:"0 auto",display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:24}}>🕌</span>
+          <div>
+            <div style={{fontWeight:800,fontSize:17}}>Islamic Inheritance Divider</div>
+            <div style={{fontSize:11,color:"#A8907A"}}>حساب الميراث الإسلامي — Land allocation among heirs</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{maxWidth:720,margin:"0 auto",padding:"0 16px"}}>
+        <StepBar current={step}/>
+
+        {/* STEP 1 */}
+        {step===1&&(
+          <div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontWeight:700,fontSize:18,marginBottom:4}}>👨‍👩‍👧‍👦 Add Family Members</div>
+              <div style={{fontSize:13,color:"#8A7060"}}>Add surviving parent(s) first, then each brother and sister.</div>
+            </div>
+            <Card style={{marginBottom:14}}>
+              <div style={sectionLabel}>Add a heir</div>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                <Input value={hName} onChange={setHName} placeholder="Full name" style={{flex:"1 1 160px"}}/>
+                <select value={hRole} onChange={e=>setHRole(e.target.value)}
+                  style={{flex:"1 1 160px",border:"1px solid #E0D4C0",borderRadius:8,padding:"9px 12px",fontSize:14,background:"#FDFAF5",color:"#2A2018"}}>
+                  {Object.entries(ROLE).map(([k,v])=><option key={k} value={k}>{v.emoji} {v.label}</option>)}
+                </select>
+                <Btn onClick={addHeir} variant="green">+ Add</Btn>
+              </div>
+            </Card>
+
+            {heirs.length>0&&(
+              <Card style={{marginBottom:20}}>
+                <div style={sectionLabel}>Heirs Added ({heirs.length})</div>
+                {heirs.map(h=>{
+                  const r=ROLE[h.role];
+                  return(
+                    <div key={h.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"#FAF6EF",borderRadius:8,border:"1px solid #EAE0D0",marginBottom:8}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <span style={{fontSize:20}}>{r.emoji}</span>
+                        <div>
+                          <div style={{fontWeight:700,fontSize:14}}>{h.name}</div>
+                          <div style={{fontSize:11,color:"#A8907A"}}>{r.label} · Share: <strong>{fmtPct(shares[h.id]||0)}</strong></div>
+                        </div>
+                      </div>
+                      <button onClick={()=>setHeirs(p=>p.filter(x=>x.id!==h.id))} style={{background:"none",border:"none",cursor:"pointer",color:"#D4907A",fontSize:16}}>✕</button>
+                    </div>
+                  );
+                })}
+                <div style={{marginTop:12,padding:"12px 14px",background:"#F0EDE6",borderRadius:8,border:"1px solid #DDD4C4"}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#8A7060",marginBottom:8,textTransform:"uppercase",letterSpacing:".05em"}}>📖 Islamic Shares Applied</div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    {heirs.map(h=>(
+                      <div key={h.id} style={{background:ROLE[h.role].bg,border:`1px solid ${ROLE[h.role].bd}`,borderRadius:8,padding:"4px 10px",fontSize:12}}>
+                        <span style={{color:ROLE[h.role].color,fontWeight:700}}>{h.name}</span>
+                        <span style={{color:"#8A7060"}}> — {fmtPct(shares[h.id]||0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            )}
+            <div style={{display:"flex",justifyContent:"flex-end"}}>
+              <Btn onClick={()=>setStep(2)} disabled={heirs.length<2}>Next: Add Lands →</Btn>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 2 */}
+        {step===2&&(
+          <div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontWeight:700,fontSize:18,marginBottom:4}}>🏡 Add Inherited Lands</div>
+              <div style={{fontSize:13,color:"#8A7060"}}>Enter each land and its estimated value in OMR.</div>
+            </div>
+            <Card style={{marginBottom:14}}>
+              <div style={sectionLabel}>Add a land</div>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                <Input value={lName} onChange={setLName} placeholder="Land name / location" style={{flex:"2 1 180px"}}/>
+                <Input value={lVal}  onChange={setLVal}  placeholder="Value in OMR" type="number" style={{flex:"1 1 120px"}}/>
+                <Btn onClick={addLand} variant="green">+ Add</Btn>
+              </div>
+            </Card>
+            {lands.length>0&&(
+              <Card style={{marginBottom:20}}>
+                <div style={sectionLabel}>Lands ({lands.length})</div>
+                {lands.map((l,i)=>(
+                  <div key={l.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",background:i%2===0?"#FAF6EF":"#fff",borderRadius:8,border:"1px solid #EAE0D0",marginBottom:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <span style={{fontSize:18}}>🗺️</span>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:14}}>{l.name}</div>
+                        <div style={{fontSize:12,color:"#8A7060"}}>Value: <strong style={{color:"#B03818"}}>{fmtOMR(l.value)}</strong></div>
+                      </div>
+                    </div>
+                    <button onClick={()=>setLands(p=>p.filter(x=>x.id!==l.id))} style={{background:"none",border:"none",cursor:"pointer",color:"#D4907A",fontSize:16}}>✕</button>
+                  </div>
+                ))}
+                <div style={{marginTop:10,padding:"10px 14px",background:"#FFF8EE",borderRadius:8,border:"1px solid #E8D898",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontSize:13,color:"#8A6020"}}>Total Estate Value</span>
+                  <span style={{fontWeight:800,fontSize:16,color:"#6A4810"}}>{fmtOMR(totalEstate)}</span>
+                </div>
+              </Card>
+            )}
+            <div style={{display:"flex",justifyContent:"space-between"}}>
+              <Btn onClick={()=>setStep(1)} variant="ghost">← Back</Btn>
+              <Btn onClick={()=>setStep(3)} disabled={lands.length===0}>Next: Select Interests →</Btn>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 3 */}
+        {step===3&&(
+          <div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontWeight:700,fontSize:18,marginBottom:4}}>☑️ Who Wants Which Land?</div>
+              <div style={{fontSize:13,color:"#8A7060"}}>Each person taps the lands they want a share in.</div>
+            </div>
+            {lands.map(land=>{
+              const intCount=Object.values(interests[land.id]||{}).filter(Boolean).length;
+              const intIds=Object.entries(interests[land.id]||{}).filter(([,v])=>v).map(([id])=>id);
+              const preview=intIds.length>0?divideLand(land.value,intIds,shares):null;
+              return(
+                <Card key={land.id} style={{marginBottom:14}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:16}}>🗺️ {land.name}</div>
+                      <div style={{fontSize:13,color:"#8A7060",marginTop:2}}>Value: <strong style={{color:"#B03818"}}>{fmtOMR(land.value)}</strong></div>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontSize:11,color:"#A8907A"}}>Interested</div>
+                      <div style={{fontWeight:800,fontSize:22,color:intCount>0?"#2A6840":"#C0907A"}}>{intCount}</div>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                    {heirs.map(h=>{
+                      const on=!!(interests[land.id]?.[h.id]);
+                      const r=ROLE[h.role];
+                      return(
+                        <button key={h.id} onClick={()=>toggleInterest(land.id,h.id)} style={{border:`2px solid ${on?r.color:r.bd}`,background:on?r.bg:"#fff",borderRadius:10,padding:"8px 14px",cursor:"pointer",transition:"all .15s",display:"flex",alignItems:"center",gap:6,boxShadow:on?`0 2px 8px ${r.color}30`:"none"}}>
+                          <span style={{fontSize:16}}>{r.emoji}</span>
+                          <div style={{textAlign:"left"}}>
+                            <div style={{fontSize:13,fontWeight:700,color:on?r.color:"#6A5A4A"}}>{h.name}</div>
+                            <div style={{fontSize:10,color:on?r.color:"#A8907A"}}>{on?"✓ Interested":"Tap to select"}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {preview&&(
+                    <div style={{marginTop:12,padding:"10px 12px",background:"#F7F4EE",borderRadius:8,border:"1px solid #E8DDD0"}}>
+                      <div style={{fontSize:11,fontWeight:700,color:"#8A7060",marginBottom:6,textTransform:"uppercase",letterSpacing:".05em"}}>Preview split</div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                        {intIds.map(id=>{
+                          const h=heirs.find(x=>x.id===id);const r=ROLE[h.role];
+                          return <div key={id} style={{fontSize:12,padding:"3px 10px",borderRadius:6,background:r.bg,color:r.color,border:`1px solid ${r.bd}`,fontWeight:600}}>{h.name}: {fmtOMR(preview[id])}</div>;
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+            <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
+              <Btn onClick={()=>setStep(2)} variant="ghost">← Back</Btn>
+              <Btn onClick={()=>setStep(4)}>Calculate Results →</Btn>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 4 */}
+        {step===4&&results&&(
+          <div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontWeight:700,fontSize:18,marginBottom:4}}>📊 Inheritance Results</div>
+              <div style={{fontSize:13,color:"#8A7060"}}>Each person's rightful Islamic share vs what they selected from lands.</div>
+            </div>
+
+            <Card style={{marginBottom:16}}>
+              <div style={{...sectionLabel,marginBottom:14}}>💰 Per-Person Summary</div>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",fontSize:13}}>
+                  <thead>
+                    <tr style={{background:"#F5EDE6"}}>
+                      {["Heir","Share %","Rightful Amount","Allocated","Balance"].map(h=>(
+                        <th key={h} style={{padding:"9px 10px",textAlign:h==="Heir"?"left":"right",fontWeight:700,color:"#6A5A48",fontSize:11,textTransform:"uppercase",letterSpacing:".04em",whiteSpace:"nowrap"}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {heirs.map((h,i)=>{
+                      const bal=results.balance[h.id];
+                      const pos=bal>50,neg=bal<-50;
+                      const r=ROLE[h.role];
+                      return(
+                        <tr key={h.id} style={{background:i%2===0?"#FAF6EF":"#fff",borderBottom:"1px solid #EDE5D8"}}>
+                          <td style={{padding:"10px 10px"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:8}}>
+                              <span style={{fontSize:18}}>{r.emoji}</span>
+                              <div>
+                                <div style={{fontWeight:700}}>{h.name}</div>
+                                <div style={{fontSize:11,color:r.color}}>{r.label}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{padding:"10px",textAlign:"right",fontWeight:600,color:r.color}}>{fmtPct(shares[h.id]||0)}</td>
+                          <td style={{padding:"10px",textAlign:"right",color:"#5A4A38",whiteSpace:"nowrap"}}>{fmtOMR(results.rightful[h.id])}</td>
+                          <td style={{padding:"10px",textAlign:"right",fontWeight:700,whiteSpace:"nowrap"}}>{fmtOMR(results.allocated[h.id])}</td>
+                          <td style={{padding:"10px",textAlign:"right"}}>
+                            <span style={{padding:"4px 8px",borderRadius:20,fontWeight:700,fontSize:11,whiteSpace:"nowrap",background:pos?"#FEE8E0":neg?"#E8F5EE":"#F0EDE6",color:pos?"#B03818":neg?"#2A6840":"#8A7060"}}>
+                              {pos?`▲ Owes ${fmtOMR(bal)}`:neg?`▼ Gets ${fmtOMR(-bal)}`:"✓ OK"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{background:"#FFF8EE",borderTop:"2px solid #E8D898"}}>
+                      <td colSpan={2} style={{padding:"10px",fontWeight:700,color:"#6A4810"}}>Total Estate</td>
+                      <td style={{padding:"10px",textAlign:"right",fontWeight:800,color:"#6A4810",whiteSpace:"nowrap"}}>{fmtOMR(totalEstate)}</td>
+                      <td style={{padding:"10px",textAlign:"right",fontWeight:800,color:"#6A4810",whiteSpace:"nowrap"}}>{fmtOMR(Object.values(results.allocated).reduce((a,b)=>a+b,0))}</td>
+                      <td/>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </Card>
+
+            <Card style={{marginBottom:16}}>
+              <div style={{...sectionLabel,marginBottom:14}}>🗺️ Land Breakdown</div>
+              {lands.map(land=>{
+                const bd=results.breakdown[land.id]||{};
+                const intIds=Object.keys(bd);
+                if(!intIds.length) return(
+                  <div key={land.id} style={{padding:"10px 14px",marginBottom:10,borderRadius:8,background:"#F5F0E8",border:"1px solid #E8DDD0",color:"#A8907A",fontSize:13}}>
+                    🗺️ <strong>{land.name}</strong> — No one selected this land.
+                  </div>
+                );
+                return(
+                  <div key={land.id} style={{marginBottom:12,padding:"12px 14px",borderRadius:10,background:"#FAF6EF",border:"1px solid #E8DDD0"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
+                      <span style={{fontWeight:700,fontSize:14}}>🗺️ {land.name}</span>
+                      <span style={{fontWeight:700,color:"#B03818"}}>{fmtOMR(land.value)}</span>
+                    </div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                      {intIds.map(id=>{
+                        const h=heirs.find(x=>x.id===id);const r=ROLE[h.role];
+                        return(
+                          <div key={id} style={{flex:"1 1 130px",padding:"8px 12px",borderRadius:8,background:r.bg,border:`1px solid ${r.bd}`}}>
+                            <div style={{fontSize:11,color:r.color,fontWeight:700}}>{r.emoji} {h.name}</div>
+                            <div style={{fontSize:15,fontWeight:800,color:"#2A2018",marginTop:2}}>{fmtOMR(bd[id])}</div>
+                            <div style={{fontSize:10,color:"#A8907A"}}>{(bd[id]/land.value*100).toFixed(1)}% of land</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </Card>
+
+            {results.settlements.length>0?(
+              <Card style={{marginBottom:16,border:"1px solid #E8D898",background:"#FFFBF0"}}>
+                <div style={{...sectionLabel,color:"#6A4810",marginBottom:4}}>🤝 Settlement Payments Required</div>
+                <div style={{fontSize:12,color:"#8A7040",marginBottom:14}}>These payments are needed to balance each heir's Islamic share.</div>
+                {results.settlements.map((s,i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",marginBottom:8,borderRadius:10,background:"#fff",border:"1px solid #E8D898"}}>
+                    <span style={{fontSize:18}}>{ROLE[s.fromRole].emoji}</span>
+                    <div style={{flex:1,fontSize:14}}>
+                      <span style={{fontWeight:700,color:ROLE[s.fromRole].color}}>{s.from}</span>
+                      <span style={{color:"#8A7060",margin:"0 8px"}}>pays</span>
+                      <span style={{fontWeight:700,color:ROLE[s.toRole].color}}>{s.to}</span>
+                    </div>
+                    <span style={{fontWeight:800,fontSize:16,color:"#6A4810",background:"#FFF3D0",padding:"4px 14px",borderRadius:20,border:"1px solid #D4A840",whiteSpace:"nowrap"}}>{fmtOMR(s.amount)}</span>
+                    <span style={{fontSize:18}}>{ROLE[s.toRole].emoji}</span>
+                  </div>
+                ))}
+              </Card>
+            ):(
+              <Card style={{marginBottom:16,border:"1px solid #A0C8B0",background:"#EEF8F2"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,color:"#2A6840"}}>
+                  <span style={{fontSize:24}}>✅</span>
+                  <div>
+                    <div style={{fontWeight:700}}>Perfectly Balanced</div>
+                    <div style={{fontSize:13,color:"#4A8860"}}>Each heir's allocation matches their Islamic share. No settlement needed.</div>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            <div style={{display:"flex",gap:10,justifyContent:"space-between"}}>
+              <Btn onClick={()=>setStep(3)} variant="ghost">← Adjust</Btn>
+              <Btn onClick={()=>{setStep(1);setHeirs([]);setLands([]);setInterests({});}} variant="soft">Start Over</Btn>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

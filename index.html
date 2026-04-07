@@ -3,41 +3,35 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Oman Islamic Inheritance — حساب الميراث</title>
+<title>Family Inheritance — حساب الميراث</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{background:#FAF6EF;font-family:'Segoe UI',system-ui,sans-serif;color:#2A2018}
-  input,select,button,textarea{font-family:inherit}
-  input:focus,select:focus,textarea:focus{outline:2px solid #B03818;outline-offset:1px}
-  table{border-collapse:collapse}
+  input,button{font-family:inherit}
+  input:focus{outline:2px solid #2A6840;outline-offset:2px;border-color:#2A6840!important}
   @keyframes spin{to{transform:rotate(360deg)}}
-  @keyframes pop{0%{transform:scale(.8);opacity:0}100%{transform:scale(1);opacity:1}}
   @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-  .pop{animation:pop .3s ease}.spin{display:inline-block;animation:spin 1s linear infinite}.fade{animation:fadeIn .35s ease}
+  .fade{animation:fadeIn .3s ease}
+  .spin{display:inline-block;animation:spin 1s linear infinite}
 
   @media print {
-    body{background:#fff!important;color:#000!important}
+    body{background:#fff!important}
     .no-print{display:none!important}
     .print-only{display:block!important}
-    .print-page{page-break-after:always;padding:18mm}
-    .print-page:last-child{page-break-after:auto}
-    @page{size:A4;margin:12mm}
-    .pt{font-size:18pt;font-weight:700;color:#1A2018;border-bottom:2pt solid #2A6840;padding-bottom:6pt;margin-bottom:14pt}
-    .ps{font-size:10pt;color:#555;margin-top:3pt}
-    .ptable{width:100%;border-collapse:collapse;font-size:9.5pt;margin-bottom:10pt}
-    .ptable th{background:#eef5ee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:5pt 7pt;border:0.5pt solid #bbb;font-weight:700;text-align:left}
-    .ptable td{padding:5pt 7pt;border:0.5pt solid #ddd;vertical-align:top}
-    .ptable tr:nth-child(even) td{background:#fafafa!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .ptotal td{background:#fff8ee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-weight:700;border-top:1.5pt solid #B03818!important}
-    .warn-box{border:1pt solid #D4A840;background:#FFF8E8!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:8pt 10pt;border-radius:4pt;margin-top:10pt;font-size:9pt}
-    .basis-pill{font-size:8pt;color:#2A6840;font-style:italic}
-    .matrix-tbl{width:100%;border-collapse:collapse;font-size:8.5pt}
-    .matrix-tbl th,.matrix-tbl td{border:0.5pt solid #ccc;padding:3pt 5pt;text-align:center}
-    .matrix-tbl .rh{text-align:left;font-weight:700;background:#f5f5f5!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .mt{background:#fff8ee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-weight:700}
+    @page{size:A4;margin:14mm}
+    .pp{page-break-after:always}
+    .pp:last-child{page-break-after:auto}
+    .pt{font-size:17pt;font-weight:700;border-bottom:2pt solid #2A6840;padding-bottom:6pt;margin-bottom:12pt;color:#1A2018}
+    .psub{font-size:9pt;color:#555;margin-top:3pt;margin-bottom:10pt}
+    .ptbl{width:100%;border-collapse:collapse;font-size:10pt;margin-bottom:10pt}
+    .ptbl th{background:#eef5ee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:5pt 8pt;border:0.5pt solid #bbb;font-weight:700;text-align:left}
+    .ptbl td{padding:5pt 8pt;border:0.5pt solid #ddd;vertical-align:middle}
+    .ptbl tr:nth-child(even) td{background:#fafafa!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .ptot td{background:#fff8ee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-weight:700;border-top:1.5pt solid #B03818!important}
+    .pwarn{border:1pt solid #D4A840;background:#FFF8E8!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:7pt 10pt;border-radius:4pt;font-size:9pt;margin-top:8pt}
   }
   @media screen{.print-only{display:none}}
 </style>
@@ -47,400 +41,142 @@
 <script type="text/babel">
 const { useState, useMemo, useEffect, useRef } = React;
 
-// ── Auth / config ─────────────────────────────────────────
+// ── Fixed scenario ────────────────────────────────────────
+// Husband passed away. Heirs: 1 wife + 6 sons + 4 daughters.
+// Wife  = 1/8  (Qur'an 4:12 — with children)
+// Residue 7/8 → children: each son = 2× each daughter
+// Units = (6×2) + (4×1) = 16
+// Son   = (2/16) × (7/8) = 7/64
+// Daughter = (1/16) × (7/8) = 7/128
+const WIFE_SHARE = 1/8;
+const SON_SHARE  = 7/64;
+const DAU_SHARE  = 7/128;
+const SONS_N = 6;
+const DAUS_N = 4;
+
+// ── Auth / GitHub ─────────────────────────────────────────
 const PASSWORD_HASH = "16dea2b1c492b2f0489fc18d2a60e3ef661d4dd71e3bcf7d0f7ce707351ba6e1";
 const DATA_FILE = "inheritance_data.xml";
+
 const LS = {
   get:(k,fb)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}},
 };
-const uid     = ()=>Math.random().toString(36).slice(2,8);
-const fmtOMR  = n=>`OMR ${Number(n).toLocaleString("en",{minimumFractionDigits:3,maximumFractionDigits:7})}`;
-const fmtPct  = n=>`${(n*100).toFixed(6)}%`;
-const fmtPct2 = n=>`${(n*100).toFixed(2)}%`;
-const today   = ()=>new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"});
 
-// ── GCD / fraction utilities ──────────────────────────────
-function gcd(a,b){return b<0.0001?a:gcd(b,a%b);}
-function toFrac(x){
-  if(x===0)return "0";
-  const tolerance=1e-9;
-  let h1=1,h2=0,k1=0,k2=1,b=x;
-  let iter=0;
-  do{
-    const a=Math.floor(b);
-    let aux=h1;h1=a*h1+h2;h2=aux;
-    aux=k1;k1=a*k1+k2;k2=aux;
-    b=1/(b-a);
-    iter++;
-  }while(Math.abs(x-h1/k1)>x*tolerance&&iter<20);
-  return `${h1}/${k1}`;
-}
-
-// ── Heir role definitions ─────────────────────────────────
-const ROLE = {
-  husband:      {emoji:"👨",  label:"Husband (زوج)",                     short:"Husband",       color:"#2D5FA5",bg:"#EBF2FA",bd:"#90AEDE", unique:true},
-  wife:         {emoji:"👩",  label:"Wife / Wives (زوجة)",               short:"Wife",          color:"#7040A0",bg:"#F3EEF8",bd:"#BC98E0", unique:false},
-  father:       {emoji:"👴",  label:"Father of Deceased (أب)",           short:"Father",        color:"#6A4010",bg:"#F5EBD8",bd:"#C8A070", unique:true},
-  mother:       {emoji:"👵",  label:"Mother of Deceased (أم)",           short:"Mother",        color:"#8A3060",bg:"#F8EEF4",bd:"#D090B8", unique:true},
-  son:          {emoji:"👦",  label:"Son (ابن)",                         short:"Son",           color:"#2A6840",bg:"#ECF6F0",bd:"#7DC49A", unique:false},
-  daughter:     {emoji:"👧",  label:"Daughter (بنت)",                    short:"Daughter",      color:"#B03818",bg:"#FAF0EB",bd:"#DA9070", unique:false},
-  grandson:     {emoji:"👶",  label:"Grandson — Son's Son (ابن الابن)",  short:"Grandson",      color:"#3A7A50",bg:"#EEF8F2",bd:"#90C8A8", unique:false},
-  granddaughter:{emoji:"👶",  label:"Granddaughter — Son's Daughter (بنت الابن)",short:"Granddaughter",color:"#C04828",bg:"#FDF2EE",bd:"#E8A888", unique:false},
-  pgrandfather: {emoji:"🧓",  label:"Paternal Grandfather (جد)",         short:"P.Grandfather", color:"#5A6020",bg:"#F4F5E0",bd:"#B8C070", unique:true},
-  mgrandmother: {emoji:"👩‍🦳",label:"Maternal Grandmother (جدة لأم)",   short:"M.Grandmother", color:"#6050A0",bg:"#EEEAF8",bd:"#B0A0D8", unique:true},
-  pgrandmother: {emoji:"👩‍🦳",label:"Paternal Grandmother (جدة لأب)",   short:"P.Grandmother", color:"#7050A0",bg:"#F0EAF8",bd:"#C0A8E0", unique:true},
-  fullbrother:  {emoji:"🧑",  label:"Full Brother of Deceased (أخ شقيق)", short:"F.Brother",     color:"#205080",bg:"#E8F2FA",bd:"#88B8D8", unique:false},
-  fullsister:   {emoji:"👩",  label:"Full Sister of Deceased (أخت شقيقة)",short:"F.Sister",      color:"#802050",bg:"#FAE8F2",bd:"#D888B8", unique:false},
-  consbrother:  {emoji:"🧑",  label:"Consanguine Brother (أخ لأب)",      short:"C.Brother",     color:"#306890",bg:"#E4EEF5",bd:"#78A8C8", unique:false},
-  conssister:   {emoji:"👩",  label:"Consanguine Sister (أخت لأب)",      short:"C.Sister",      color:"#903050",bg:"#F5E4EE",bd:"#C878A8", unique:false},
-  uterinesib:   {emoji:"🧑",  label:"Uterine Sibling (أخ/أخت لأم)",     short:"Uterine Sib.",  color:"#407070",bg:"#E8F5F5",bd:"#80C0C0", unique:false},
-};
-
-// ── All heir types for confirmation checklist ─────────────
-// Confirmation checklist per approved spec — these heirs CHANGE all shares
-const CONFIRM_LIST = [
-  // ── Critical — directly change wife's/children's shares ──────────────────────
-  {key:"father",       critical:true,  q:"Is the deceased's father alive?",
-   note:"Father's presence changes mother's share from 1/3 to 1/6 and also takes 1/6 himself."},
-  {key:"mother",       critical:true,  q:"Is the deceased's mother alive?",
-   note:"Mother takes 1/6 (with children) or 1/3 (without), reducing children's residue."},
-  {key:"husband",      critical:true,  q:"Is there a surviving husband? (deceased is a woman)",
-   note:"Husband gets 1/4 (with children) or 1/2 (without). Changes all other shares."},
-  {key:"wife",         critical:true,  q:"Are there additional wives beyond those already listed?",
-   note:"Multiple wives share the 1/8 equally — it is NOT 1/8 each."},
-  // ── Other heirs that could affect distribution ────────────────────────────────
-  {key:"grandson",     critical:false, q:"Are there any grandsons (son's sons)?",
-   note:"Grandsons inherit like sons if no sons exist."},
-  {key:"granddaughter",critical:false, q:"Are there any granddaughters (son's daughters)?",
-   note:"Granddaughters inherit like daughters if no sons/daughters exist."},
-  {key:"pgrandfather", critical:false, q:"Is the paternal grandfather alive (father absent)?",
-   note:"Takes father's place when father is absent."},
-  {key:"mgrandmother", critical:false, q:"Is the maternal grandmother alive (mother absent)?",
-   note:"Gets 1/6 when mother is absent."},
-  {key:"pgrandmother", critical:false, q:"Is the paternal grandmother alive (mother absent)?",
-   note:"Gets 1/6 (shared with maternal grandmother if both present) when mother absent."},
-  {key:"fullbrother",  critical:false, q:"Are there any full brothers of the deceased? (NOT his sons — his actual brothers)",
-   note:"Blocked by sons, daughters, father. Reduces mother's share to 1/6."},
-  {key:"fullsister",   critical:false, q:"Are there any full sisters of the deceased? (NOT his daughters — his actual sisters)",
-   note:"Blocked by sons, daughters, father."},
-  {key:"consbrother",  critical:false, q:"Any consanguine (paternal half) brothers?",
-   note:"Blocked if full brothers exist."},
-  {key:"conssister",   critical:false, q:"Any consanguine (paternal half) sisters?",
-   note:"Blocked if full sisters exist."},
-  {key:"uterinesib",   critical:false, q:"Any uterine (maternal half) siblings?",
-   note:"Only inherit if no children, grandchildren, father, or grandfather."},
-];
-
-// ══════════════════════════════════════════════════════════
-// ISLAMIC SHARES ENGINE — per Qur'an 4:11-12, 4:176
-// Jurisdiction: Oman — Royal Decree 32/97
-// ══════════════════════════════════════════════════════════
-function islamicSharesEngine(heirs){
-  const H = role => heirs.find(h=>h.role===role);
-  const HS= role => heirs.filter(h=>h.role===role);
-
-  const husband      = H("husband"),   wives        = HS("wife"),
-        father       = H("father"),    mother       = H("mother"),
-        sons         = HS("son"),      daughters    = HS("daughter"),
-        grandsons    = HS("grandson"), granddaughters=HS("granddaughter"),
-        pgrandfather = H("pgrandfather"),
-        mgrandmother = H("mgrandmother"), pgrandmother = H("pgrandmother"),
-        fullBrothers = HS("fullbrother"), fullSisters  = HS("fullsister"),
-        consBrothers = HS("consbrother"), consSisters  = HS("conssister"),
-        uterineSibs  = HS("uterinesib");
-
-  const hasDirectSon = sons.length>0;
-  const hasDirectDaughter = daughters.length>0;
-  const hasGrandson = grandsons.length>0;
-  const hasChild = sons.length>0||daughters.length>0;
-  const hasGrandchild = grandsons.length>0||granddaughters.length>0;
-  const hasCOG = hasChild||hasGrandchild;     // child or grandchild
-  const siblingsCount = fullBrothers.length+fullSisters.length+consBrothers.length+consSisters.length+uterineSibs.length;
-
-  const shares = {}, basis = {}, fracs = {}, warnings = [];
-  let pool = 1;
-
-  function assign(id, share, frac, b){
-    shares[id]=(shares[id]||0)+share;
-    fracs[id]=frac;
-    basis[id]=b;
-  }
-
-  // ── 1. HUSBAND ───────────────────────────────────────────
-  if(husband){
-    const s=hasCOG?1/4:1/2;
-    assign(husband.id,s,hasCOG?"1/4":"1/2",hasCOG?"Qur'an 4:12 — 1/4 (child exists)":"Qur'an 4:12 — 1/2 (no child)");
-    pool-=s;
-  }
-
-  // ── 2. WIFE / WIVES ──────────────────────────────────────
-  if(wives.length>0){
-    const totalW=hasCOG?1/8:1/4;
-    const each=totalW/wives.length;
-    wives.forEach(w=>{assign(w.id,each,`${hasCOG?"1/8":"1/4"}÷${wives.length}`,`Qur'an 4:12 — wife gets ${hasCOG?"1/8":"1/4"}${wives.length>1?` shared by ${wives.length} wives`:""}`)});
-    pool-=totalW;
-    if(wives.length>1) warnings.push("Multiple wives share the wife's fixed portion equally.");
-  }
-
-  // ── 3. FATHER ────────────────────────────────────────────
-  if(father){
-    if(hasCOG){
-      assign(father.id,1/6,"1/6","Qur'an 4:11 — 1/6 (child exists); also takes residue if no sons");
-      pool-=1/6;
-      // Father also gets residue if no sons/grandsons — handled in Asaba block
-    }
-    // if no children, father takes all residue — handled in Asaba block
-  }
-
-  // ── 4. MOTHER ────────────────────────────────────────────
-  if(mother){
-    // 1/6 if: children exist, OR grandchildren, OR 2+ siblings of deceased
-    if(hasCOG||siblingsCount>=2){
-      assign(mother.id,1/6,"1/6","Qur'an 4:11 — 1/6 (child or grandchild exists, or 2+ siblings)");
-      pool-=1/6;
-    } else {
-      assign(mother.id,1/3,"1/3","Qur'an 4:11 — 1/3 (no child, fewer than 2 siblings)");
-      pool-=1/3;
-    }
-  }
-
-  // ── 5. PATERNAL GRANDFATHER (no father) ─────────────────
-  if(!father&&pgrandfather){
-    if(hasCOG){
-      assign(pgrandfather.id,1/6,"1/6","Like father — 1/6 (child exists); Consensus of scholars");
-      pool-=1/6;
-    }
-    // Complex: grandfather + siblings requires Muqasama — flag as advisory
-    if(siblingsCount>0) warnings.push("⚠️ Grandfather with siblings: share requires detailed Muqasama calculation (consult a scholar).");
-  }
-
-  // ── 6. GRANDMOTHERS ─────────────────────────────────────
-  if(!mother){
-    const gm=[];
-    if(mgrandmother)gm.push(mgrandmother);
-    if(pgrandmother)gm.push(pgrandmother);
-    if(gm.length>0){
-      const each=(1/6)/gm.length;
-      gm.forEach(g=>{assign(g.id,each,gm.length>1?"1/12 each":"1/6","1/6 shared by grandmothers — Hadith of Prophet ﷺ (Abu Dawud)");});
-      pool-=1/6;
-    }
-  }
-
-  // ── 7. DAUGHTERS — fixed share if NO sons & NO grandsons ─
-  if(daughters.length>0 && !hasDirectSon && !hasGrandson){
-    const total=daughters.length===1?1/2:2/3;
-    const each=total/daughters.length;
-    daughters.forEach(d=>{assign(d.id,each,daughters.length===1?"1/2":`2/3÷${daughters.length}`,daughters.length===1?"Qur'an 4:11 — 1/2 (one daughter, no son)":"Qur'an 4:11 — 2/3 shared (daughters, no son)");});
-    pool-=total;
-  }
-
-  // ── 8. GRANDDAUGHTERS — fixed share if no sons, daughters, or grandsons ──
-  if(granddaughters.length>0&&!hasDirectSon&&!hasDirectDaughter&&!hasGrandson){
-    const total=granddaughters.length===1?1/2:2/3;
-    const each=total/granddaughters.length;
-    granddaughters.forEach(d=>{assign(d.id,each,granddaughters.length===1?"1/2":"2/3/n","Like daughters — Qur'an 4:11 by extension");});
-    pool-=total;
-  } else if(granddaughters.length>0&&daughters.length===1&&!hasDirectSon&&!hasGrandson){
-    // One daughter gets 1/2, granddaughters share 1/6
-    const each=(1/6)/granddaughters.length;
-    granddaughters.forEach(d=>{assign(d.id,each,`1/6÷${granddaughters.length}`,"1/6 to complete 2/3 — Hadith, Bukhari");});
-    pool-=1/6;
-  }
-
-  // ── 9. FULL SISTERS — fixed if no sons, no father, no pgrandfather, no children ──
-  if(fullSisters.length>0&&fullBrothers.length===0&&!father&&!hasCOG&&!pgrandfather){
-    const total=fullSisters.length===1?1/2:2/3;
-    const each=total/fullSisters.length;
-    fullSisters.forEach(s=>{assign(s.id,each,fullSisters.length===1?"1/2":"2/3/n","Qur'an 4:176 — full sister(s)");});
-    pool-=total;
-  }
-
-  // ── 10. CONSANGUINE SISTERS — fixed (if no full brothers/sisters) ─
-  if(consSisters.length>0&&consBrothers.length===0&&fullBrothers.length===0&&fullSisters.length===0&&!father&&!hasCOG&&!pgrandfather){
-    const total=consSisters.length===1?1/2:2/3;
-    const each=total/consSisters.length;
-    consSisters.forEach(s=>{assign(s.id,each,consSisters.length===1?"1/2":"2/3/n","Qur'an 4:176 — consanguine sister, like full sister");});
-    pool-=total;
-  }
-
-  // ── 11. UTERINE SIBLINGS ─────────────────────────────────
-  if(uterineSibs.length>0&&!hasCOG&&!father&&!pgrandfather){
-    const total=uterineSibs.length===1?1/6:1/3;
-    const each=total/uterineSibs.length;
-    uterineSibs.forEach(s=>{assign(s.id,each,uterineSibs.length===1?"1/6":`1/3÷${uterineSibs.length}`,"Qur'an 4:12 — uterine siblings");});
-    pool-=total;
-  }
-
-  // ══ ASABA (RESIDUE) DISTRIBUTION ═══════════════════════
-  if(pool>0.0001){
-    // Priority 1: Sons (+ daughters as Asaba with sons)
-    if(sons.length>0){
-      const asDaus=daughters.filter(d=>!shares[d.id]);  // daughters not yet assigned
-      const units=sons.length*2+asDaus.length;
-      sons.forEach(s=>{assign(s.id,(2/units)*pool,`2/${units}×residue`,"Qur'an 4:11 — عصبة: son 2× daughter");});
-      asDaus.forEach(d=>{assign(d.id,(1/units)*pool,`1/${units}×residue`,"Qur'an 4:11 — عصبة with brother");});
-      pool=0;
-    }
-    // Priority 2: Grandsons (+ granddaughters)
-    else if(grandsons.length>0){
-      const asGDaus=granddaughters.filter(d=>!shares[d.id]);
-      const units=grandsons.length*2+asGDaus.length;
-      grandsons.forEach(s=>{assign(s.id,(2/units)*pool,`2/${units}×res`,"عصبة — grandson like son");});
-      asGDaus.forEach(d=>{assign(d.id,(1/units)*pool,`1/${units}×res`,"عصبة — granddaughter with grandson");});
-      pool=0;
-    }
-    // Priority 3: Father (takes remaining after his 1/6, or all if no child)
-    else if(father){
-      shares[father.id]=(shares[father.id]||0)+pool;
-      fracs[father.id]=hasCOG?`1/6+residue`:"All residue";
-      basis[father.id]+=" + residue (عصبة — no sons)";
-      pool=0;
-    }
-    // Priority 4: Paternal grandfather (no father)
-    else if(!father&&pgrandfather){
-      shares[pgrandfather.id]=(shares[pgrandfather.id]||0)+pool;
-      fracs[pgrandfather.id]=hasCOG?`1/6+residue`:"All residue";
-      basis[pgrandfather.id]+=" + residue";
-      pool=0;
-    }
-    // Priority 5: Full brothers (+ full sisters with them)
-    else if(fullBrothers.length>0&&!hasCOG){
-      const sists=fullSisters.filter(s=>!shares[s.id]);
-      const units=fullBrothers.length*2+sists.length;
-      fullBrothers.forEach(b=>{assign(b.id,(2/units)*pool,`2/${units}×res`,"عصبة — full brother");});
-      sists.forEach(s=>{assign(s.id,(1/units)*pool,`1/${units}×res`,"عصبة — full sister with brother");});
-      pool=0;
-    }
-    // Priority 6: Full sisters as Asaba with daughters (Ta'seeb)
-    else if(fullSisters.length>0&&daughters.length>0&&!hasCOG&&!father){
-      const each=pool/fullSisters.length;
-      fullSisters.forEach(s=>{
-        const prev=shares[s.id]||0;
-        shares[s.id]=prev+each;
-        fracs[s.id]=(shares[s.id]||0)>0?toFrac(shares[s.id]):"0";
-        basis[s.id]=(basis[s.id]||"")+" + Asaba with daughters (Ta'seeb)";
-      });
-      pool=0;
-    }
-    // Priority 7: Consanguine brothers (no full brothers)
-    else if(consBrothers.length>0&&!hasCOG){
-      const sists=consSisters.filter(s=>!shares[s.id]);
-      const units=consBrothers.length*2+sists.length;
-      consBrothers.forEach(b=>{assign(b.id,(2/units)*pool,`2/${units}×res`,"عصبة — consanguine brother");});
-      sists.forEach(s=>{assign(s.id,(1/units)*pool,`1/${units}×res`,"عصبة — consanguine sister with brother");});
-      pool=0;
-    }
-    else if(pool>0.01){
-      warnings.push(`⚠️ Residue of ${fmtPct2(pool)} remains unallocated. This may require Radd (رد) redistribution or Bayt al-Mal. Consult a scholar.`);
-    }
-  }
-
-  // ── Radd: if no Asaba heirs, return residue to fixed-share heirs (excluding spouse) ──
-  if(pool>0.01){
-    const raddHeirs=heirs.filter(h=>shares[h.id]&&h.role!=="husband"&&h.role!=="wife");
-    if(raddHeirs.length>0){
-      const totalFixed=raddHeirs.reduce((s,h)=>s+(shares[h.id]||0),0);
-      raddHeirs.forEach(h=>{
-        const extra=(shares[h.id]/totalFixed)*pool;
-        shares[h.id]+=extra;
-        fracs[h.id]=toFrac(shares[h.id]);
-        basis[h.id]+=" + Radd (رد)";
-      });
-      pool=0;
-    }
-  }
-
-  // Compute precise fractions
-  heirs.forEach(h=>{
-    if(shares[h.id]){fracs[h.id]=toFrac(shares[h.id]);}
-  });
-
-  return{shares,fracs,basis,warnings,pool};
-}
-
-// ── Land division ─────────────────────────────────────────
-function divideLand(val,ids,shares){
-  let tw=0;const ws={};
-  ids.forEach(id=>{ws[id]=shares[id]||0;tw+=ws[id];});
-  const out={};ids.forEach(id=>{out[id]=tw>0?(ws[id]/tw)*val:0;});
-  return out;
-}
-function settle(heirs,balance){
-  const P=heirs.filter(h=>balance[h.id]>1).map(h=>({...h,amt:balance[h.id]}));
-  const R=heirs.filter(h=>balance[h.id]<-1).map(h=>({...h,amt:-balance[h.id]}));
-  const res=[];let pi=0,ri=0;
-  while(pi<P.length&&ri<R.length){
-    const a=Math.min(P[pi].amt,R[ri].amt);
-    if(a>1)res.push({from:P[pi].name,fRole:P[pi].role,to:R[ri].name,tRole:R[ri].role,amount:a});
-    P[pi].amt-=a;R[ri].amt-=a;
-    if(P[pi].amt<1)pi++;if(R[ri].amt<1)ri++;
-  }
-  return res;
-}
+const uid = ()=>Math.random().toString(36).slice(2,8);
+const fmt = (n,dp=3)=>`OMR ${Number(n).toLocaleString("en",{minimumFractionDigits:dp,maximumFractionDigits:7})}`;
+const pct = n=>`${(n*100).toFixed(6)}%`;
+const today = ()=>new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"});
 
 // ── XML ───────────────────────────────────────────────────
-const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-function toXML(estate,heirs,lands){
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<inheritance>\n  <estate gross="${estate.gross}" debts="${estate.debts}" bequest="${estate.bequest}" bequestIsHeir="${estate.bequestIsHeir}" deceasedName="${esc(estate.deceasedName)}" religion="${esc(estate.religion)}"/>\n  <heirs>\n${heirs.map(h=>`    <heir id="${esc(h.id)}" name="${esc(h.name)}" role="${esc(h.role)}"/>`).join("\n")}\n  </heirs>\n  <lands>\n${lands.map(l=>`    <land id="${esc(l.id)}" name="${esc(l.name)}" value="${l.value}" location="${esc(l.loc||"")}"/>`).join("\n")}\n  </lands>\n</inheritance>`;
+const esc = s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+function toXML(names, estate, lands) {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<inheritance>
+  <family wife="${esc(names.wife)}" estate="${estate}">
+    <sons>${names.sons.map((n,i)=>`<son i="${i}" name="${esc(n)}"/>`).join("")}</sons>
+    <daughters>${names.daughters.map((n,i)=>`<daughter i="${i}" name="${esc(n)}"/>`).join("")}</daughters>
+  </family>
+  <lands>${lands.map(l=>`<land id="${esc(l.id)}" name="${esc(l.name)}" value="${l.value}" loc="${esc(l.loc||"")}"/>`).join("")}</lands>
+</inheritance>`;
 }
-function fromXML(s){
-  const doc=new DOMParser().parseFromString(s,"application/xml");
-  if(doc.querySelector("parsererror"))throw new Error("Invalid XML");
-  const en=doc.querySelector("estate");
-  const estate=en?{gross:parseFloat(en.getAttribute("gross"))||0,debts:parseFloat(en.getAttribute("debts"))||0,bequest:parseFloat(en.getAttribute("bequest"))||0,bequestIsHeir:en.getAttribute("bequestIsHeir")==="true",deceasedName:en.getAttribute("deceasedName")||"",religion:en.getAttribute("religion")||"Muslim"}:{gross:0,debts:0,bequest:0,bequestIsHeir:false,deceasedName:"",religion:"Muslim"};
-  return{
-    estate,
-    heirs:[...doc.querySelectorAll("heir")].map(n=>({id:n.getAttribute("id")||uid(),name:n.getAttribute("name")||"",role:n.getAttribute("role")||"son"})),
-    lands:[...doc.querySelectorAll("land")].map(n=>({id:n.getAttribute("id")||uid(),name:n.getAttribute("name")||"",value:parseFloat(n.getAttribute("value"))||0,loc:n.getAttribute("location")||""})),
+
+function fromXML(s) {
+  const doc = new DOMParser().parseFromString(s,"application/xml");
+  if(doc.querySelector("parsererror")) throw new Error("Invalid XML");
+  const fam = doc.querySelector("family");
+  const sons = [...doc.querySelectorAll("son")].sort((a,b)=>+a.getAttribute("i")-+b.getAttribute("i")).map(n=>n.getAttribute("name")||"");
+  const daus = [...doc.querySelectorAll("daughter")].sort((a,b)=>+a.getAttribute("i")-+b.getAttribute("i")).map(n=>n.getAttribute("name")||"");
+  // Pad to correct count
+  while(sons.length < SONS_N) sons.push("");
+  while(daus.length < DAUS_N) daus.push("");
+  return {
+    names: { wife: fam?.getAttribute("wife")||"", sons: sons.slice(0,SONS_N), daughters: daus.slice(0,DAUS_N) },
+    estate: parseFloat(fam?.getAttribute("estate"))||0,
+    lands: [...doc.querySelectorAll("land")].map(n=>({id:n.getAttribute("id")||uid(),name:n.getAttribute("name")||"",value:parseFloat(n.getAttribute("value"))||0,loc:n.getAttribute("loc")||""})),
   };
 }
 
 // ── GitHub API ────────────────────────────────────────────
-async function ghGet(cfg){
-  const r=await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${DATA_FILE}`,{headers:{"Authorization":`token ${cfg.token}`,"Accept":"application/vnd.github.v3+json"}});
-  if(r.status===404)return null;
-  if(!r.ok)throw new Error(`GitHub ${r.status}`);
-  const j=await r.json();
-  return{content:atob(j.content.replace(/\n/g,"")),sha:j.sha};
+async function ghGet(cfg) {
+  const r = await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${DATA_FILE}`,
+    {headers:{"Authorization":`token ${cfg.token}`,"Accept":"application/vnd.github.v3+json"}});
+  if(r.status===404) return null;
+  if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(e.message||`GitHub ${r.status}`); }
+  const j = await r.json();
+  return { content: atob(j.content.replace(/\n/g,"")), sha: j.sha };
 }
-async function ghPut(cfg,xml,sha){
-  const r=await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${DATA_FILE}`,{method:"PUT",headers:{"Authorization":`token ${cfg.token}`,"Accept":"application/vnd.github.v3+json","Content-Type":"application/json"},body:JSON.stringify({message:sha?"Update":"Create",content:btoa(unescape(encodeURIComponent(xml))),...(sha?{sha}:{})})});
-  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||`GitHub ${r.status}`);}
-  return(await r.json()).content.sha;
+async function ghPut(cfg, xml, sha) {
+  const r = await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${DATA_FILE}`,
+    {method:"PUT",headers:{"Authorization":`token ${cfg.token}`,"Accept":"application/vnd.github.v3+json","Content-Type":"application/json"},
+     body:JSON.stringify({message:sha?"Update family data":"Create family data",content:btoa(unescape(encodeURIComponent(xml))),...(sha?{sha}:{})})});
+  if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(e.message||`GitHub ${r.status}`); }
+  return (await r.json()).content.sha;
 }
 
-// ── UI Primitives ─────────────────────────────────────────
-function Card({children,style={}}){return <div style={{background:"#fff",borderRadius:12,border:"1px solid #EAE0D0",boxShadow:"0 2px 10px rgba(0,0,0,.05)",padding:20,...style}}>{children}</div>;}
+// ── Land division (proportional to Islamic shares) ────────
+function divideLand(landVal, interestedIds, allHeirs) {
+  // Each interested heir gets a portion proportional to their Islamic share
+  const shareOf = id => {
+    const h = allHeirs.find(x=>x.id===id);
+    if(!h) return 0;
+    if(h.role==="wife")      return WIFE_SHARE;
+    if(h.role==="son")       return SON_SHARE;
+    if(h.role==="daughter")  return DAU_SHARE;
+    return 0;
+  };
+  const total = interestedIds.reduce((s,id)=>s+shareOf(id), 0);
+  const out = {};
+  interestedIds.forEach(id=>{ out[id] = total>0 ? (shareOf(id)/total)*landVal : 0; });
+  return out;
+}
+
+function calcSettlements(heirs, balance) {
+  const P = heirs.filter(h=>balance[h.id]>1).map(h=>({...h,amt:balance[h.id]}));
+  const R = heirs.filter(h=>balance[h.id]<-1).map(h=>({...h,amt:-balance[h.id]}));
+  const res=[]; let pi=0,ri=0;
+  while(pi<P.length&&ri<R.length){
+    const a=Math.min(P[pi].amt,R[ri].amt);
+    if(a>1) res.push({from:P[pi].name,to:R[ri].name,amount:a,fromRole:P[pi].role,toRole:R[ri].role});
+    P[pi].amt-=a; R[ri].amt-=a;
+    if(P[pi].amt<1)pi++; if(R[ri].amt<1)ri++;
+  }
+  return res;
+}
+
+// ── UI primitives ─────────────────────────────────────────
+function Card({children,style={}}){
+  return <div style={{background:"#fff",borderRadius:12,border:"1px solid #EAE0D0",boxShadow:"0 2px 8px rgba(0,0,0,.05)",padding:22,...style}}>{children}</div>;
+}
 function Btn({children,onClick,v="primary",disabled=false,sm=false,full=false}){
-  const base={border:"none",borderRadius:8,cursor:disabled?"not-allowed":"pointer",fontWeight:600,transition:"all .15s",fontSize:sm?12:14,padding:sm?"6px 12px":"10px 22px",opacity:disabled?.45:1,display:"inline-flex",alignItems:"center",gap:5,width:full?"100%":"auto",justifyContent:full?"center":"flex-start"};
-  const vs={primary:{background:"#B03818",color:"#fff"},ghost:{background:"transparent",color:"#B03818",border:"1px solid #B03818"},green:{background:"#2A6840",color:"#fff"},soft:{background:"#F5EDE6",color:"#B03818",border:"1px solid #E8C8B8"},grey:{background:"#F0EBE3",color:"#6A5A48",border:"1px solid #DDD4C4"},blue:{background:"#1A4F7A",color:"#fff"},print:{background:"#1A4F7A",color:"#fff"}};
+  const base={border:"none",borderRadius:8,cursor:disabled?"not-allowed":"pointer",fontWeight:600,transition:"all .15s",fontSize:sm?12:14,padding:sm?"6px 14px":"11px 26px",opacity:disabled?.4:1,display:"inline-flex",alignItems:"center",gap:5,width:full?"100%":"auto",justifyContent:"center"};
+  const vs={primary:{background:"#2A6840",color:"#fff"},red:{background:"#B03818",color:"#fff"},ghost:{background:"transparent",color:"#2A6840",border:"1px solid #2A6840"},soft:{background:"#EEF6F0",color:"#2A6840",border:"1px solid #A0C8B0"},grey:{background:"#F0EBE3",color:"#6A5A48",border:"1px solid #DDD4C4"},blue:{background:"#1A4F7A",color:"#fff"},print:{background:"#1A4F7A",color:"#fff"}};
   return <button onClick={disabled?undefined:onClick} style={{...base,...vs[v]}}>{children}</button>;
 }
 function Inp({value,onChange,placeholder,type="text",style={}}){
   return <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} type={type}
-    style={{border:"1px solid #E0D4C0",borderRadius:8,padding:"9px 13px",fontSize:14,background:"#FDFAF5",color:"#2A2018",width:"100%",...style}}/>;
+    style={{border:"1px solid #E0D4C0",borderRadius:8,padding:"10px 14px",fontSize:14,background:"#FDFAF5",color:"#2A2018",width:"100%",...style}}/>;
 }
 function SyncBadge({status,err}){
-  const map={loading:{bg:"#EBF2FA",bd:"#90AEDE",c:"#2D5FA5",txt:"Loading…",sp:true},saving:{bg:"#FFF8EE",bd:"#D4A840",c:"#8A6020",txt:"Saving…",sp:true},saved:{bg:"#ECF6F0",bd:"#7DC49A",c:"#2A6840",txt:"✓ Saved"},error:{bg:"#FEE8E0",bd:"#E4A090",c:"#B03818",txt:"⚠ "+(err||"")}};
-  const m=map[status];if(!m)return null;
-  return <span className="pop" style={{fontSize:11,fontWeight:600,background:m.bg,border:`1px solid ${m.bd}`,color:m.c,borderRadius:20,padding:"3px 12px",display:"inline-flex",alignItems:"center",gap:5}}>{m.sp&&<span className="spin">⟳</span>}{m.txt}</span>;
+  const m={loading:{bg:"#EBF2FA",c:"#2D5FA5",t:"Loading…",sp:true},saving:{bg:"#FFF8EE",c:"#8A6020",t:"Saving…",sp:true},saved:{bg:"#ECF6F0",c:"#2A6840",t:"✓ Saved"},error:{bg:"#FEE8E0",c:"#B03818",t:"⚠ "+(err||"")}}[status];
+  if(!m)return null;
+  return <span style={{fontSize:11,fontWeight:600,background:m.bg,color:m.c,borderRadius:20,padding:"3px 12px",display:"inline-flex",alignItems:"center",gap:4}}>{m.sp&&<span className="spin">⟳</span>}{m.t}</span>;
 }
-const SL={fontSize:11,fontWeight:700,color:"#8A7060",marginBottom:10,textTransform:"uppercase",letterSpacing:".06em"};
 
-function StepBar({cur,go,canGo}){
-  const steps=["Estate","Heirs","Confirm","Lands","Results"];
+function StepBar({cur}){
+  const steps=["Names","Estate","Lands","Results"];
   return(
-    <div style={{display:"flex",alignItems:"flex-start",marginBottom:24,position:"relative"}}>
-      <div style={{position:"absolute",top:15,left:"6%",right:"6%",height:2,background:"#E8DDD0",zIndex:0}}/>
+    <div style={{display:"flex",alignItems:"flex-start",marginBottom:28,position:"relative"}}>
+      <div style={{position:"absolute",top:14,left:"10%",right:"10%",height:2,background:"#E8DDD0",zIndex:0}}/>
       {steps.map((s,i)=>{
-        const n=i+1,done=n<cur,active=n===cur,click=canGo[i]&&n!==cur;
+        const n=i+1,done=n<cur,active=n===cur;
         return(
-          <div key={s} onClick={click?()=>go(n):undefined} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,flex:1,cursor:click?"pointer":"default"}}>
+          <div key={s} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flex:1}}>
             <div style={{width:28,height:28,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,background:done?"#2A6840":active?"#B03818":"#E8DDD0",color:done||active?"#fff":"#A8907A",zIndex:1,position:"relative"}}>
               {done?"✓":n}
             </div>
-            <span style={{fontSize:9,fontWeight:active?700:400,color:active?"#2A2018":"#B0907A",textAlign:"center"}}>{s}</span>
+            <span style={{fontSize:10,fontWeight:active?700:400,color:active?"#2A2018":"#B0907A"}}>{s}</span>
           </div>
         );
       })}
@@ -448,122 +184,98 @@ function StepBar({cur,go,canGo}){
   );
 }
 
-// ══════════════════════════════════════════════════════════
-// PRINT REPORTS
-// ══════════════════════════════════════════════════════════
-function PrintReports({estate,heirs,lands,ints,engine,onClose}){
+// ── PRINT REPORTS ─────────────────────────────────────────
+function PrintReports({names, estate, lands, ints, allHeirs, onClose}){
   const [sel,setSel]=useState(null);
-  const net=estate.gross-estate.debts-(estate.bequestIsHeir?0:estate.bequest);
 
-  const landAllocs=useMemo(()=>{
+  const landAllocs = useMemo(()=>{
     const out={};
-    lands.forEach(land=>{
-      const ids=Object.entries(ints[land.id]||{}).filter(([,v])=>v).map(([id])=>id);
-      out[land.id]=ids.length>0?divideLand(land.value,ids,engine.shares):{};
+    lands.forEach(l=>{
+      const ids=Object.entries(ints[l.id]||{}).filter(([,v])=>v).map(([id])=>id);
+      out[l.id]=ids.length>0?divideLand(l.value,ids,allHeirs):{};
     });
     return out;
-  },[lands,ints,engine]);
+  },[lands,ints,allHeirs]);
 
-  const alloc={};heirs.forEach(h=>{alloc[h.id]=0;});
-  lands.forEach(land=>{Object.entries(landAllocs[land.id]||{}).forEach(([id,amt])=>{alloc[id]=(alloc[id]||0)+amt;});});
-  const right={};heirs.forEach(h=>{right[h.id]=(engine.shares[h.id]||0)*net;});
-  const bal={};heirs.forEach(h=>{bal[h.id]=alloc[h.id]-right[h.id];});
-  const settlements=settle(heirs,bal);
+  const allocated={};allHeirs.forEach(h=>{allocated[h.id]=0;});
+  lands.forEach(l=>{Object.entries(landAllocs[l.id]||{}).forEach(([id,amt])=>{allocated[id]=(allocated[id]||0)+amt;});});
+  const rightful={};allHeirs.forEach(h=>{rightful[h.id]=(h.role==="wife"?WIFE_SHARE:h.role==="son"?SON_SHARE:DAU_SHARE)*estate;});
+  const balance={};allHeirs.forEach(h=>{balance[h.id]=allocated[h.id]-rightful[h.id];});
+  const settlements=calcSettlements(allHeirs,balance);
+
+  const rept=[
+    {id:"shares",  icon:"📊",t:"Islamic Shares",     d:"Each person's fraction, % and amount"},
+    {id:"perlnd",  icon:"🗺️",t:"Per Land Report",    d:"One page per land"},
+    {id:"perperson",icon:"👤",t:"Per Person Report",  d:"One page per family member"},
+    {id:"matrix",  icon:"📋",t:"Master Summary",      d:"Full grid + settlements"},
+  ];
+
+  function doPrint(id){setSel(id);setTimeout(()=>window.print(),300);}
 
   const Header=({title,sub})=>(
-    <div style={{borderBottom:"2pt solid #2A6840",paddingBottom:"8pt",marginBottom:"14pt"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-        <div>
-          <div className="pt">🕌 {title}</div>
-          <div className="ps">Islamic Inheritance — Oman (Royal Decree 32/97) — حساب الميراث الإسلامي</div>
-          {sub&&<div className="ps">{sub}</div>}
-        </div>
-        <div style={{textAlign:"right",fontSize:"8pt",color:"#888"}}>
-          <div>{today()}</div>
-          <div>Deceased: {estate.deceasedName||"—"} · Religion: {estate.religion}</div>
-          <div>Gross: {fmtOMR(estate.gross)} · Net: {fmtOMR(net)}</div>
-        </div>
-      </div>
+    <div style={{borderBottom:"2pt solid #2A6840",paddingBottom:"7pt",marginBottom:"12pt"}}>
+      <div className="pt">{title}</div>
+      <div className="psub">Family Inheritance · Islamic Sharia · Oman · حساب الميراث الإسلامي · {today()}</div>
+      {sub&&<div className="psub">{sub}</div>}
     </div>
   );
-
-  function doprint(id){setSel(id);setTimeout(()=>window.print(),350);}
-
-  const reports=[
-    {id:"shares",  icon:"📊",title:"Islamic Shares Report",     desc:"Each heir's fraction, %, amount & Qur'anic basis"},
-    {id:"perlnd",  icon:"🗺️",title:"Per Land Report",           desc:"One page per land — who gets what"},
-    {id:"perperson",icon:"👤",title:"Per Person Report",         desc:"One page per heir — their total and balance"},
-    {id:"matrix",  icon:"📋",title:"Master Inheritance Matrix",  desc:"Full grid + settlements"},
-  ];
 
   return(
     <div>
       <div className="no-print">
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-          <div style={{fontWeight:700,fontSize:18}}>🖨️ Print / PDF Reports</div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+          <div style={{fontWeight:700,fontSize:18}}>🖨️ Print / Save as PDF</div>
           <Btn v="grey" sm onClick={onClose}>← Back</Btn>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12,marginBottom:16}}>
-          {reports.map(r=>(
-            <Card key={r.id} style={{cursor:"pointer",border:`2px solid ${sel===r.id?"#B03818":"#EAE0D0"}`}} onClick={()=>setSel(r.id)}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12,marginBottom:16}}>
+          {rept.map(r=>(
+            <Card key={r.id} style={{cursor:"pointer",border:`2px solid ${sel===r.id?"#2A6840":"#EAE0D0"}`,padding:16}} onClick={()=>setSel(r.id)}>
               <div style={{fontSize:26,marginBottom:6}}>{r.icon}</div>
-              <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>{r.title}</div>
-              <div style={{fontSize:12,color:"#8A7060",marginBottom:12}}>{r.desc}</div>
-              <Btn v={sel===r.id?"primary":"soft"} sm onClick={e=>{e.stopPropagation();doprint(r.id);}}>🖨️ Print / PDF</Btn>
+              <div style={{fontWeight:700,fontSize:14,marginBottom:3}}>{r.t}</div>
+              <div style={{fontSize:12,color:"#8A7060",marginBottom:12}}>{r.d}</div>
+              <Btn v={sel===r.id?"primary":"soft"} sm onClick={e=>{e.stopPropagation();doPrint(r.id);}}>🖨️ Print / PDF</Btn>
             </Card>
           ))}
         </div>
         <div style={{padding:"10px 14px",background:"#F4F8FE",borderRadius:8,border:"1px solid #B0C8E0",fontSize:12,color:"#3A5A7A"}}>
-          💡 Print → change destination to <strong>Save as PDF</strong>
+          💡 In the print dialog, change the destination to <strong>Save as PDF</strong>
         </div>
       </div>
 
-      {/* ── PRINT CONTENT ── */}
+      {/* ── PRINT PAGES ── */}
       <div className="print-only">
 
-        {/* SHARES REPORT */}
+        {/* SHARES */}
         {sel==="shares"&&(
-          <div className="print-page">
-            <Header title="Islamic Shares Report" sub={`Net distributable estate: ${fmtOMR(net)} | Debts deducted: ${fmtOMR(estate.debts)} | Bequest: ${fmtOMR(estate.bequest)}`}/>
-            <div style={{marginBottom:"12pt",fontSize:"9pt",color:"#555",background:"#f9f9f0",padding:"8pt",border:"0.5pt solid #ccc",borderRadius:"4pt"}}>
-              <strong>Governing Law:</strong> Islamic Sharia as applied under Oman's Personal Status Law, Royal Decree 32/97. Estate divided per Qur'an 4:11-12, 4:176.
-              Shares apply to the net distributable estate after deduction of funeral expenses, debts, and valid bequests (not exceeding 1/3 to non-heirs).
-            </div>
-            <table className="ptable">
-              <thead><tr><th>Heir</th><th>Role</th><th>Fraction</th><th>Percentage</th><th>Amount (OMR)</th><th>Legal Basis</th></tr></thead>
+          <div className="pp">
+            <Header title="Islamic Shares Report" sub={`Total Estate: ${fmt(estate,0)} · Wife 1/8 · Each son 7/64 · Each daughter 7/128`}/>
+            <table className="ptbl">
+              <thead><tr><th>Name</th><th>Role</th><th>Fraction</th><th>Share %</th><th>Amount (OMR)</th></tr></thead>
               <tbody>
-                {heirs.map((h,i)=>{
-                  const r=ROLE[h.role],sh=engine.shares[h.id]||0;
-                  if(!sh)return null;
-                  return <tr key={h.id}><td>{r.emoji} {h.name}</td><td>{r.short}</td><td style={{fontWeight:700}}>{engine.fracs[h.id]||"0"}</td><td>{fmtPct(sh)}</td><td style={{fontWeight:700}}>{fmtOMR(sh*net)}</td><td className="basis-pill">{engine.basis[h.id]||"—"}</td></tr>;
+                {allHeirs.map((h,i)=>{
+                  const sh=h.role==="wife"?WIFE_SHARE:h.role==="son"?SON_SHARE:DAU_SHARE;
+                  const fr=h.role==="wife"?"1/8":h.role==="son"?"7/64":"7/128";
+                  return <tr key={h.id}><td>{h.name}</td><td>{h.role==="wife"?"Wife":h.role==="son"?"Son":"Daughter"}</td><td style={{fontWeight:700}}>{fr}</td><td>{pct(sh)}</td><td style={{fontWeight:700}}>{fmt(sh*estate)}</td></tr>;
                 })}
               </tbody>
-              <tfoot><tr className="ptotal"><td colSpan={4}>Net Estate</td><td>{fmtOMR(net)}</td><td/></tr></tfoot>
+              <tfoot><tr className="ptot"><td colSpan={4}>Total Estate</td><td>{fmt(estate,0)}</td></tr></tfoot>
             </table>
-            {engine.warnings.length>0&&<div className="warn-box"><strong>⚠️ Warnings:</strong><ul style={{marginLeft:"14pt",marginTop:"4pt"}}>{engine.warnings.map((w,i)=><li key={i}>{w}</li>)}</ul></div>}
-            <div className="warn-box" style={{marginTop:"10pt"}}>
-              <strong>⚠️ Result is valid only if no other heir exists.</strong> Under Islamic inheritance law, adding or removing one heir can change all shares. Confirm the full heir list before relying on this result. This calculation is advisory — final determination should be verified by a qualified Islamic scholar or Oman's Shari'a courts.
-            </div>
+            <div className="pwarn">⚠️ Result is valid only if no other heir exists (no father, no mother, no additional wife). Islamic inheritance, Qur'an 4:11–12. Oman Personal Status Law, Royal Decree 32/97.</div>
           </div>
         )}
 
         {/* PER LAND */}
-        {sel==="perlnd"&&lands.map(land=>{
-          const alloc2=landAllocs[land.id]||{};const ids=Object.keys(alloc2);
+        {sel==="perlnd"&&lands.map(l=>{
+          const a=landAllocs[l.id]||{};const ids=Object.keys(a);
           return(
-            <div key={land.id} className="print-page">
-              <Header title={`Land: ${land.name}`} sub={land.loc?`📍 ${land.loc}`:null}/>
-              <div style={{display:"flex",gap:"12pt",marginBottom:"12pt"}}>
-                {[["Land Value",fmtOMR(land.value)],["Interested Heirs",ids.length],["Location",land.loc||"—"]].map(([l,v])=>(
-                  <div key={l} style={{border:"1pt solid #ccc",borderRadius:"5pt",padding:"7pt 12pt",minWidth:"90pt"}}><div style={{fontSize:"8pt",color:"#666",textTransform:"uppercase"}}>{l}</div><div style={{fontSize:"13pt",fontWeight:700,marginTop:"2pt"}}>{v}</div></div>
-                ))}
-              </div>
-              {ids.length===0?<div style={{color:"#888",fontStyle:"italic"}}>No heirs selected for this land.</div>:(
-                <table className="ptable">
-                  <thead><tr><th>Heir</th><th>Islamic %</th><th>Fraction</th><th>Share of Land</th><th>Amount (OMR)</th></tr></thead>
-                  <tbody>{ids.map(id=>{const h=heirs.find(x=>x.id===id);if(!h)return null;const r=ROLE[h.role];return <tr key={id}><td>{r.emoji} {h.name}</td><td>{fmtPct2(engine.shares[id]||0)}</td><td>{engine.fracs[id]||"—"}</td><td>{fmtPct2(alloc2[id]/land.value)}</td><td style={{fontWeight:700}}>{fmtOMR(alloc2[id])}</td></tr>;})}
+            <div key={l.id} className="pp">
+              <Header title={`Land: ${l.name}`} sub={`Value: ${fmt(l.value,0)}${l.loc?` · 📍 ${l.loc}`:""}`}/>
+              {ids.length===0?<p style={{color:"#888",fontStyle:"italic"}}>No family members selected for this land.</p>:(
+                <table className="ptbl">
+                  <thead><tr><th>Name</th><th>Role</th><th>Fraction</th><th>% of Land</th><th>Amount (OMR)</th></tr></thead>
+                  <tbody>{ids.map(id=>{const h=allHeirs.find(x=>x.id===id);if(!h)return null;const fr=h.role==="wife"?"1/8":h.role==="son"?"7/64":"7/128";return <tr key={id}><td>{h.name}</td><td>{h.role==="wife"?"Wife":h.role==="son"?"Son":"Daughter"}</td><td style={{fontWeight:700}}>{fr}</td><td>{(a[id]/l.value*100).toFixed(4)}%</td><td style={{fontWeight:700}}>{fmt(a[id])}</td></tr>;})}
                   </tbody>
-                  <tfoot><tr className="ptotal"><td colSpan={4}>Total</td><td>{fmtOMR(ids.reduce((s,id)=>s+alloc2[id],0))}</td></tr></tfoot>
+                  <tfoot><tr className="ptot"><td colSpan={4}>Total</td><td>{fmt(ids.reduce((s,id)=>s+(a[id]||0),0))}</td></tr></tfoot>
                 </table>
               )}
             </div>
@@ -571,64 +283,60 @@ function PrintReports({estate,heirs,lands,ints,engine,onClose}){
         })}
 
         {/* PER PERSON */}
-        {sel==="perperson"&&heirs.map(h=>{
-          const r=ROLE[h.role];
-          const myLands=lands.filter(l=>landAllocs[l.id]?.[h.id]>0);
-          const b=bal[h.id];
+        {sel==="perperson"&&allHeirs.map(h=>{
+          const fr=h.role==="wife"?"1/8":h.role==="son"?"7/64":"7/128";
+          const sh=h.role==="wife"?WIFE_SHARE:h.role==="son"?SON_SHARE:DAU_SHARE;
+          const myLands=lands.filter(l=>(landAllocs[l.id]?.[h.id]||0)>0);
+          const b=balance[h.id];
           return(
-            <div key={h.id} className="print-page">
-              <Header title={`${r.emoji} ${h.name} — Personal Report`} sub={`${r.label} · Islamic share: ${engine.fracs[h.id]||"0"} (${fmtPct2(engine.shares[h.id]||0)})`}/>
-              <div style={{display:"flex",gap:"12pt",marginBottom:"12pt"}}>
-                {[["Rightful Amount",fmtOMR(right[h.id])],["Allocated from Lands",fmtOMR(alloc[h.id])],["Balance",b>50?`▲ Owes ${fmtOMR(b)}`:b<-50?`▼ Gets ${fmtOMR(-b)}`:"✓ Even"]].map(([l,v])=>(
-                  <div key={l} style={{border:"1pt solid #ccc",borderRadius:"5pt",padding:"7pt 12pt",minWidth:"90pt"}}><div style={{fontSize:"8pt",color:"#666",textTransform:"uppercase"}}>{l}</div><div style={{fontSize:"12pt",fontWeight:700,marginTop:"2pt"}}>{v}</div></div>
-                ))}
-              </div>
-              <table className="ptable">
-                <thead><tr><th>Land</th><th>Location</th><th>Land Value</th><th>% of Land</th><th>Allocated (OMR)</th></tr></thead>
-                <tbody>{myLands.length===0?<tr><td colSpan={5} style={{color:"#888",fontStyle:"italic"}}>No lands selected.</td></tr>:myLands.map(l=>{const a=landAllocs[l.id][h.id]||0;return <tr key={l.id}><td>{l.name}</td><td>{l.loc||"—"}</td><td>{fmtOMR(l.value)}</td><td>{fmtPct2(a/l.value)}</td><td style={{fontWeight:700}}>{fmtOMR(a)}</td></tr>;})}
+            <div key={h.id} className="pp">
+              <Header title={`${h.name} — ${h.role==="wife"?"Wife":h.role==="son"?"Son":"Daughter"}`} sub={`Islamic share: ${fr} = ${pct(sh)} = ${fmt(sh*estate)}`}/>
+              <table className="ptbl">
+                <thead><tr><th>Land</th><th>Location</th><th>Land Value</th><th>Amount Allocated (OMR)</th></tr></thead>
+                <tbody>{myLands.length===0?<tr><td colSpan={4} style={{color:"#888",fontStyle:"italic"}}>No land selected.</td></tr>:myLands.map(l=><tr key={l.id}><td>{l.name}</td><td>{l.loc||"—"}</td><td>{fmt(l.value,0)}</td><td style={{fontWeight:700}}>{fmt(landAllocs[l.id][h.id])}</td></tr>)}
                 </tbody>
-                <tfoot><tr className="ptotal"><td colSpan={4}>Total Allocated</td><td>{fmtOMR(alloc[h.id])}</td></tr></tfoot>
+                <tfoot><tr className="ptot"><td colSpan={3}>Total from Lands</td><td>{fmt(allocated[h.id])}</td></tr></tfoot>
               </table>
-              <div className="warn-box" style={{marginTop:"10pt"}}>
-                <strong>Basis:</strong> {engine.basis[h.id]||"—"}
-              </div>
+              {Math.abs(b)>1&&<div className="pwarn">{b>0?`▲ ${h.name} received OMR ${fmt(b)} more than rightful share — settlement required.`:`▼ ${h.name} is OMR ${fmt(-b)} short of rightful share — to receive from settlement.`}</div>}
             </div>
           );
         })}
 
         {/* MASTER MATRIX */}
         {sel==="matrix"&&(
-          <div className="print-page">
-            <Header title="Master Inheritance Matrix"/>
-            <table className="matrix-tbl" style={{marginBottom:"14pt"}}>
+          <div className="pp">
+            <Header title="Master Inheritance Matrix" sub={`Estate: ${fmt(estate,0)} · ${allHeirs.length} heirs · ${lands.length} lands`}/>
+            <table className="ptbl">
               <thead>
                 <tr>
-                  <th className="rh" style={{minWidth:"80pt"}}>Heir</th>
-                  <th>Fraction</th><th>Share %</th>
-                  {lands.map(l=><th key={l.id} style={{fontSize:"7.5pt",maxWidth:"65pt"}}>{l.name}</th>)}
-                  <th>Got</th><th>Should Get</th><th>Balance</th>
+                  <th>Name</th><th>Role</th><th>Fraction</th><th>% Share</th>
+                  {lands.map(l=><th key={l.id} style={{fontSize:"8pt"}}>{l.name}</th>)}
+                  <th>Total Got</th><th>Should Get</th><th>Balance</th>
                 </tr>
               </thead>
               <tbody>
-                {heirs.map(h=>{
-                  const b=bal[h.id],pos=b>50,neg=b<-50,r=ROLE[h.role];
+                {allHeirs.map(h=>{
+                  const fr=h.role==="wife"?"1/8":h.role==="son"?"7/64":"7/128";
+                  const sh=h.role==="wife"?WIFE_SHARE:h.role==="son"?SON_SHARE:DAU_SHARE;
+                  const b=balance[h.id];
                   return(
                     <tr key={h.id}>
-                      <td className="rh">{r.emoji} {h.name}</td>
-                      <td style={{fontWeight:700}}>{engine.fracs[h.id]||"0"}</td>
-                      <td>{fmtPct2(engine.shares[h.id]||0)}</td>
-                      {lands.map(l=><td key={l.id}>{landAllocs[l.id]?.[h.id]>0?fmtOMR(landAllocs[l.id][h.id]):"—"}</td>)}
-                      <td style={{fontWeight:700}}>{fmtOMR(alloc[h.id])}</td>
-                      <td>{fmtOMR(right[h.id])}</td>
-                      <td style={{color:pos?"#B03818":neg?"#2A6840":"#666",fontWeight:700}}>{pos?`▲${fmtOMR(b)}`:neg?`▼${fmtOMR(-b)}`:"✓"}</td>
+                      <td style={{fontWeight:600}}>{h.name}</td>
+                      <td>{h.role==="wife"?"Wife":h.role==="son"?"Son":"Daughter"}</td>
+                      <td style={{fontWeight:700}}>{fr}</td>
+                      <td>{pct(sh)}</td>
+                      {lands.map(l=><td key={l.id}>{(landAllocs[l.id]?.[h.id]||0)>0?fmt(landAllocs[l.id][h.id]):"—"}</td>)}
+                      <td style={{fontWeight:700}}>{fmt(allocated[h.id])}</td>
+                      <td>{fmt(rightful[h.id])}</td>
+                      <td style={{color:b>50?"#B03818":b<-50?"#2A6840":"#666",fontWeight:600}}>{b>50?`▲${fmt(b)}`:b<-50?`▼${fmt(-b)}`:"✓"}</td>
                     </tr>
                   );
                 })}
               </tbody>
-              <tfoot><tr className="mt"><td className="rh" colSpan={3}>Totals</td>{lands.map(l=><td key={l.id} style={{fontWeight:700}}>{fmtOMR(Object.values(landAllocs[l.id]||{}).reduce((a,b)=>a+b,0))}</td>)}<td colSpan={3}>{fmtOMR(net)}</td></tr></tfoot>
+              <tfoot><tr className="ptot"><td colSpan={4}>Totals</td>{lands.map(l=><td key={l.id}>{fmt(Object.values(landAllocs[l.id]||{}).reduce((a,b)=>a+b,0))}</td>)}<td colSpan={3}>{fmt(estate,0)}</td></tr></tfoot>
             </table>
-            {settlements.length>0&&(<><div style={{fontWeight:700,fontSize:"10pt",marginBottom:"6pt",borderBottom:"0.5pt solid #ccc",paddingBottom:"4pt"}}>🤝 Settlement Payments</div><table className="ptable"><thead><tr><th>From</th><th>Pays To</th><th style={{textAlign:"right"}}>Amount (OMR)</th></tr></thead><tbody>{settlements.map((s,i)=><tr key={i}><td>{ROLE[s.fRole].emoji} {s.from}</td><td>{ROLE[s.tRole].emoji} {s.to}</td><td style={{textAlign:"right",fontWeight:700}}>{fmtOMR(s.amount)}</td></tr>)}</tbody></table></>)}
-            <div className="warn-box" style={{marginTop:"10pt"}}>⚠️ <strong>Result is valid only if no other heir exists.</strong> Generated: {today()}. Advisory only — verify with Oman Shari'a courts or qualified scholar.</div>
+            {settlements.length>0&&<><div style={{fontWeight:700,fontSize:"10pt",margin:"12pt 0 6pt",borderBottom:"0.5pt solid #ccc",paddingBottom:"4pt"}}>🤝 Settlement Payments</div><table className="ptbl"><thead><tr><th>From</th><th>Pays To</th><th>Amount (OMR)</th></tr></thead><tbody>{settlements.map((s,i)=><tr key={i}><td>{s.from}</td><td>{s.to}</td><td style={{fontWeight:700}}>{fmt(s.amount)}</td></tr>)}</tbody></table></>}
+            <div className="pwarn">Result valid only if no other heir. Qur'an 4:11–12 · Oman RD 32/97 · {today()}</div>
           </div>
         )}
       </div>
@@ -636,35 +344,33 @@ function PrintReports({estate,heirs,lands,ints,engine,onClose}){
   );
 }
 
-// ══════════════════════════════════════════════════════════
-// LOGIN
-// ══════════════════════════════════════════════════════════
+// ── LOGIN ─────────────────────────────────────────────────
 function LoginScreen({onLogin}){
-  const [pw,setPw]=useState("");const [err,setErr]=useState("");const [show,setShow]=useState(false);const [busy,setBusy]=useState(false);
+  const [pw,setPw]=useState(""),[err,setErr]=useState(""),[show,setShow]=useState(false),[busy,setBusy]=useState(false);
   async function attempt(){
-    if(!pw)return;setBusy(true);
-    const enc=new TextEncoder();
-    const buf=await crypto.subtle.digest("SHA-256",enc.encode(pw));
+    if(!pw)return; setBusy(true);
+    const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pw));
     const hash=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
     if(hash===PASSWORD_HASH){onLogin();}else{setErr("Incorrect password.");setPw("");}
     setBusy(false);
   }
   return(
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#F5EDD8,#EAE0CC)",padding:20}}>
-      <div className="fade" style={{width:"100%",maxWidth:380}}>
+      <div style={{width:"100%",maxWidth:360}}>
         <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{fontSize:48,marginBottom:10}}>🕌</div>
-          <div style={{fontWeight:800,fontSize:22,color:"#2A2018",marginBottom:4}}>Islamic Inheritance Divider</div>
-          <div style={{fontSize:12,color:"#8A7060"}}>Oman · Royal Decree 32/97 · حساب الميراث</div>
+          <div style={{fontSize:52,marginBottom:10}}>🕌</div>
+          <div style={{fontWeight:800,fontSize:22,color:"#2A2018"}}>Family Inheritance</div>
+          <div style={{fontSize:12,color:"#8A7060",marginTop:4}}>حساب الميراث الإسلامي</div>
         </div>
         <Card style={{padding:26}}>
-          <div style={{...SL,textAlign:"center",marginBottom:14}}>🔒 Family Access</div>
+          <div style={{fontSize:11,fontWeight:700,color:"#8A7060",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14,textAlign:"center"}}>🔒 Family Access</div>
           <div style={{position:"relative",marginBottom:12}}>
-            <input value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} type={show?"text":"password"} placeholder="Family password" onKeyDown={e=>e.key==="Enter"&&attempt()}
-              style={{border:"1px solid #E0D4C0",borderRadius:8,padding:"11px 44px 11px 14px",fontSize:15,background:"#FDFAF5",color:"#2A2018",width:"100%"}}/>
+            <input value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} type={show?"text":"password"} placeholder="Password"
+              onKeyDown={e=>e.key==="Enter"&&attempt()}
+              style={{border:"1px solid #E0D4C0",borderRadius:8,padding:"12px 44px 12px 14px",fontSize:15,background:"#FDFAF5",color:"#2A2018",width:"100%"}}/>
             <button onClick={()=>setShow(p=>!p)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#A8907A"}}>{show?"🙈":"👁"}</button>
           </div>
-          {err&&<div className="pop" style={{padding:"8px 12px",borderRadius:8,background:"#FEE8E0",border:"1px solid #E4A090",color:"#B03818",fontSize:13,marginBottom:12}}>{err}</div>}
+          {err&&<div style={{padding:"8px 12px",borderRadius:8,background:"#FEE8E0",border:"1px solid #E4A090",color:"#B03818",fontSize:13,marginBottom:12}}>{err}</div>}
           <Btn v="primary" full onClick={attempt} disabled={!pw||busy}>{busy?"Checking…":"Enter →"}</Btn>
         </Card>
       </div>
@@ -672,27 +378,40 @@ function LoginScreen({onLogin}){
   );
 }
 
-// ══════════════════════════════════════════════════════════
-// GITHUB SETTINGS
-// ══════════════════════════════════════════════════════════
+// ── GITHUB SETTINGS ───────────────────────────────────────
 function GHSettings({cfg,onSave,onBack}){
-  const [token,setToken]=useState(cfg.token||"");const [owner,setOwner]=useState(cfg.owner||"");const [repo,setRepo]=useState(cfg.repo||"");
-  const [msg,setMsg]=useState("");const [busy,setBusy]=useState(false);
-  async function test(){setBusy(true);setMsg("");try{const r=await fetch(`https://api.github.com/repos/${owner}/${repo}`,{headers:{"Authorization":`token ${token}`}});setMsg(r.ok?"✅ Connected!":"❌ Error "+r.status);}catch{setMsg("❌ Network error");}setBusy(false);}
+  const [token,setToken]=useState(cfg.token||"");
+  const [owner,setOwner]=useState(cfg.owner||"");
+  const [repo,setRepo]=useState(cfg.repo||"");
+  const [msg,setMsg]=useState("");
+  const [busy,setBusy]=useState(false);
+
+  async function test(){
+    setBusy(true);setMsg("");
+    try{
+      const r=await fetch(`https://api.github.com/repos/${owner}/${repo}`,{headers:{"Authorization":`token ${token}`}});
+      if(r.ok){const j=await r.json();setMsg("✅ Connected: "+j.full_name);}
+      else{const e=await r.json().catch(()=>({}));setMsg("❌ "+r.status+": "+(e.message||"error"));}
+    }catch(e){setMsg("❌ Network error");}
+    setBusy(false);
+  }
   return(
-    <div style={{maxWidth:520,margin:"40px auto",padding:"0 16px"}}>
+    <div style={{maxWidth:480,margin:"40px auto",padding:"0 16px"}}>
       <Card>
-        <div style={{...SL,color:"#1A4F7A",marginBottom:14}}>⚙️ GitHub Setup</div>
+        <div style={{fontSize:11,fontWeight:700,color:"#1A4F7A",textTransform:"uppercase",letterSpacing:".08em",marginBottom:16}}>⚙️ GitHub Setup</div>
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
-          <div><div style={{...SL,marginBottom:5}}>Repo Owner</div><Inp value={owner} onChange={setOwner} placeholder="e.g. binarylogicllc"/></div>
-          <div><div style={{...SL,marginBottom:5}}>Repository</div><Inp value={repo} onChange={setRepo} placeholder="e.g. family"/></div>
-          <div><div style={{...SL,marginBottom:5}}>Token</div><Inp value={token} onChange={setToken} placeholder="ghp_…" type="password"/><div style={{fontSize:11,color:"#A8907A",marginTop:4}}>Fine-grained token · Contents: Read & Write</div></div>
+          <div><div style={{fontSize:12,color:"#8A7060",marginBottom:5}}>Repo Owner</div><Inp value={owner} onChange={setOwner} placeholder="e.g. binarylogicllc"/></div>
+          <div><div style={{fontSize:12,color:"#8A7060",marginBottom:5}}>Repository</div><Inp value={repo} onChange={setRepo} placeholder="e.g. family"/></div>
+          <div><div style={{fontSize:12,color:"#8A7060",marginBottom:5}}>Personal Access Token (classic, repo scope)</div><Inp value={token} onChange={setToken} placeholder="ghp_…" type="password"/></div>
         </div>
-        {msg&&<div className="pop" style={{marginTop:12,padding:"8px 14px",borderRadius:8,fontSize:13,background:msg.startsWith("✅")?"#ECF6F0":"#FEE8E0",border:`1px solid ${msg.startsWith("✅")?"#7DC49A":"#E4A090"}`,color:msg.startsWith("✅")?"#2A6840":"#B03818"}}>{msg}</div>}
-        <div style={{display:"flex",gap:10,marginTop:14}}>
+        {msg&&<div style={{marginTop:12,padding:"10px 14px",borderRadius:8,fontSize:13,lineHeight:1.6,background:msg.startsWith("✅")?"#ECF6F0":"#FEE8E0",border:`1px solid ${msg.startsWith("✅")?"#7DC49A":"#E4A090"}`,color:msg.startsWith("✅")?"#2A6840":"#B03818"}}>
+          {msg}
+          {msg.includes("Resource not accessible")&&<div style={{marginTop:6,fontSize:11}}>→ Go to github.com/settings/tokens → click your token → under "Organization access" → click Authorize next to your org → Save.</div>}
+        </div>}
+        <div style={{display:"flex",gap:10,marginTop:16}}>
           {onBack&&<Btn v="grey" onClick={onBack}>← Back</Btn>}
-          <Btn v="grey" onClick={test} disabled={!token||!owner||!repo||busy}>{busy?"…":"Test"}</Btn>
-          <Btn v="blue" onClick={()=>onSave({token,owner,repo})} disabled={!token||!owner||!repo}>Save →</Btn>
+          <Btn v="grey" onClick={test} disabled={!token||!owner||!repo||busy}>{busy?"Testing…":"Test"}</Btn>
+          <Btn v="primary" onClick={()=>onSave({token,owner,repo})} disabled={!token||!owner||!repo}>Save →</Btn>
         </div>
       </Card>
     </div>
@@ -705,489 +424,399 @@ function GHSettings({cfg,onSave,onBack}){
 function App(){
   const [authed, setAuthed] = useState(()=>LS.get("inh_auth",false));
   const [cfg,    setCfg]    = useState(()=>LS.get("gh_cfg",{}));
+  const [showCfg,setShowCfg]= useState(false);
   const [step,   setStep]   = useState(1);
-  const [estate, setEstate] = useState({gross:0,debts:0,bequest:0,bequestIsHeir:false,deceasedName:"",religion:"Muslim"});
-  const [heirs,  setHeirs]  = useState([]);
-  const [confirmed, setConfirmed] = useState({}); // {roleKey: true/false/null}
+
+  // Core data
+  const [names, setNames] = useState({
+    wife: "",
+    sons: Array(SONS_N).fill(""),
+    daughters: Array(DAUS_N).fill(""),
+  });
+  const [estate, setEstate] = useState("");
   const [lands,  setLands]  = useState([]);
   const [ints,   setInts]   = useState({});
-  const [fileSha,setFileSha]= useState(null);
-  const [sync,   setSync]   = useState("idle");
-  const [syncErr,setSyncErr]= useState("");
-  const [showPrint,setShowPrint]=useState(false);
-  const [showCfg,setShowCfg]=useState(false);
-  const saveTimer=useRef(null);
 
-  const [hName,setHName]=useState("");const [hRole,setHRole]=useState("son");const [editH,setEditH]=useState(null);
-  const [lName,setLName]=useState("");const [lVal,setLVal]=useState("");const [lLoc,setLLoc]=useState("");const [editL,setEditL]=useState(null);
+  // GitHub sync
+  const [fileSha, setFileSha] = useState(null);
+  const [sync,    setSync]    = useState("idle");
+  const [syncErr, setSyncErr] = useState("");
+  const [showPrint, setShowPrint] = useState(false);
+  const saveTimer = useRef(null);
 
-  const isConfigured=!!(cfg.token&&cfg.owner&&cfg.repo);
-  const netEstate=useMemo(()=>Math.max(0,estate.gross-estate.debts-(estate.bequestIsHeir?0:estate.bequest)),[estate]);
+  // Land form
+  const [lName,setLName]=useState("");
+  const [lVal, setLVal] =useState("");
+  const [lLoc, setLLoc] =useState("");
+  const [editL,setEditL]=useState(null);
 
-  function login(){setAuthed(true);LS.set("inh_auth",true);}
-  function logout(){setAuthed(false);LS.set("inh_auth",false);}
+  const isConfigured = !!(cfg.token && cfg.owner && cfg.repo);
+  const estateNum = parseFloat(estate)||0;
 
+  // Build flat heirs array for calculations
+  const allHeirs = useMemo(()=>{
+    const h=[];
+    if(names.wife) h.push({id:"wife", name:names.wife, role:"wife"});
+    names.sons.forEach((n,i)=>{if(n) h.push({id:`son_${i}`, name:n, role:"son"});});
+    names.daughters.forEach((n,i)=>{if(n) h.push({id:`dau_${i}`, name:n, role:"daughter"});});
+    return h;
+  },[names]);
+
+  function login(){ setAuthed(true); LS.set("inh_auth",true); }
+  function logout(){ setAuthed(false); LS.set("inh_auth",false); }
+
+  // Load from GitHub on start
   useEffect(()=>{
-    if(!authed||!isConfigured)return;
+    if(!authed||!isConfigured) return;
     setSync("loading");
     ghGet(cfg).then(r=>{
-      if(r){try{const{estate:e,heirs:h,lands:l}=fromXML(r.content);setEstate(e);setHeirs(h);setLands(l);setFileSha(r.sha);if(h.length>0&&l.length>0)setStep(4);}catch(e){setSyncErr(e.message);setSync("error");return;}}
+      if(r){
+        try{
+          const d=fromXML(r.content);
+          setNames(d.names);
+          setEstate(d.estate?String(d.estate):"");
+          setLands(d.lands);
+          setFileSha(r.sha);
+          if(d.names.wife||d.names.sons.some(s=>s)) setStep(d.estate?3:2);
+        }catch(e){setSyncErr(e.message);}
+      }
       setSync("idle");
     }).catch(e=>{setSync("error");setSyncErr(e.message);});
   },[authed,isConfigured]);
 
-  function autoSave(est,h,l,sha){
-    if(!isConfigured)return;
+  // Auto-save
+  function autoSave(n,e,l,sha){
+    if(!isConfigured) return;
     clearTimeout(saveTimer.current);
     setSync("saving");
     saveTimer.current=setTimeout(async()=>{
-      try{const ns=await ghPut(cfg,toXML(est,h,l),sha);setFileSha(ns);setSync("saved");setTimeout(()=>setSync("idle"),2500);}
-      catch(e){setSync("error");setSyncErr(e.message);}
+      try{
+        const ns=await ghPut(cfg,toXML(n,parseFloat(e)||0,l),sha);
+        setFileSha(ns);
+        setSync("saved");
+        setTimeout(()=>setSync("idle"),2500);
+      }catch(e){setSync("error");setSyncErr(e.message);}
     },1500);
   }
-  useEffect(()=>{if(authed&&isConfigured&&(heirs.length||lands.length))autoSave(estate,heirs,lands,fileSha);},[estate,heirs,lands]);
+  useEffect(()=>{
+    if(authed&&isConfigured) autoSave(names,estate,lands,fileSha);
+  },[names,estate,lands]);
 
-  const engine = useMemo(()=>islamicSharesEngine(heirs),[heirs]);
-
-  // Completeness check
-  const allConfirmed = useMemo(()=>CONFIRM_LIST.every(c=>confirmed[c.key]===true||confirmed[c.key]===false),[confirmed]);
-  const isProvisional = !allConfirmed;
-
-  function addHeir(){
-    if(!hName.trim())return;
-    const r=ROLE[hRole];
-    if(r.unique&&heirs.find(h=>h.role===hRole))return;
-    setHeirs(p=>[...p,{id:uid(),name:hName.trim(),role:hRole}]);
-    setHName("");
+  function toggleInt(lid,hid){
+    setInts(p=>({...p,[lid]:{...(p[lid]||{}),[hid]:!(p[lid]?.[hid])}}));
   }
-  function saveH(id){setHeirs(p=>p.map(h=>h.id===id?{...h,name:hName.trim(),role:hRole}:h));setEditH(null);setHName("");setHRole("son");}
-  function startH(h){setEditH(h.id);setHName(h.name);setHRole(h.role);}
-  function addLand(){const v=parseFloat(lVal);if(!lName.trim()||isNaN(v)||v<=0)return;setLands(p=>[...p,{id:uid(),name:lName.trim(),value:v,loc:lLoc.trim()}]);setLName("");setLVal("");setLLoc("");}
-  function saveL(id){const v=parseFloat(lVal);if(!lName.trim()||isNaN(v)||v<=0)return;setLands(p=>p.map(l=>l.id===id?{...l,name:lName.trim(),value:v,loc:lLoc.trim()}:l));setEditL(null);setLName("");setLVal("");setLLoc("");}
-  function startL(l){setEditL(l.id);setLName(l.name);setLVal(String(l.value));setLLoc(l.loc||"");}
-  function toggleInt(lid,hid){setInts(p=>({...p,[lid]:{...(p[lid]||{}),[hid]:!(p[lid]?.[hid])}}));}
 
-  const landAllocs=useMemo(()=>{
+  const landAllocs = useMemo(()=>{
     const out={};
-    lands.forEach(land=>{
-      const ids=Object.entries(ints[land.id]||{}).filter(([,v])=>v).map(([id])=>id);
-      out[land.id]=ids.length>0?divideLand(land.value,ids,engine.shares):{};
+    lands.forEach(l=>{
+      const ids=Object.entries(ints[l.id]||{}).filter(([,v])=>v).map(([id])=>id);
+      out[l.id]=ids.length>0?divideLand(l.value,ids,allHeirs):{};
     });
     return out;
-  },[lands,ints,engine]);
+  },[lands,ints,allHeirs]);
 
-  const results=useMemo(()=>{
-    if(!heirs.length||!lands.length)return null;
-    const alloc={};heirs.forEach(h=>{alloc[h.id]=0;});
-    lands.forEach(land=>{Object.entries(landAllocs[land.id]||{}).forEach(([id,amt])=>{alloc[id]=(alloc[id]||0)+amt;});});
-    const right={};heirs.forEach(h=>{right[h.id]=(engine.shares[h.id]||0)*netEstate;});
-    const bal={};heirs.forEach(h=>{bal[h.id]=alloc[h.id]-right[h.id];});
-    return{alloc,right,bal,settlements:settle(heirs,bal)};
-  },[heirs,lands,landAllocs,engine,netEstate]);
+  const results = useMemo(()=>{
+    if(!allHeirs.length||!lands.length||!estateNum) return null;
+    const allocated={};allHeirs.forEach(h=>{allocated[h.id]=0;});
+    lands.forEach(l=>{Object.entries(landAllocs[l.id]||{}).forEach(([id,amt])=>{allocated[id]=(allocated[id]||0)+amt;});});
+    const rightful={};
+    allHeirs.forEach(h=>{rightful[h.id]=(h.role==="wife"?WIFE_SHARE:h.role==="son"?SON_SHARE:DAU_SHARE)*estateNum;});
+    const balance={};allHeirs.forEach(h=>{balance[h.id]=allocated[h.id]-rightful[h.id];});
+    return{allocated,rightful,balance,settlements:calcSettlements(allHeirs,balance)};
+  },[allHeirs,lands,landAllocs,estateNum]);
 
   if(!authed) return <LoginScreen onLogin={login}/>;
   if(!isConfigured||showCfg) return <GHSettings cfg={cfg} onSave={c=>{LS.set("gh_cfg",c);setCfg(c);setShowCfg(false);}} onBack={isConfigured?()=>setShowCfg(false):null}/>;
 
-  const canGo=[true,estate.gross>0,heirs.length>0,heirs.length>0,heirs.length>0&&lands.length>0];
-
   return(
     <div style={{background:"#FAF6EF",minHeight:"100vh",paddingBottom:60}}>
-      <div className="no-print" style={{background:"#fff",borderBottom:"1px solid #EAE0D0",padding:"12px 20px",boxShadow:"0 1px 6px rgba(0,0,0,.06)",marginBottom:22}}>
-        <div style={{maxWidth:760,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+
+      {/* Header */}
+      <div className="no-print" style={{background:"#fff",borderBottom:"1px solid #EAE0D0",padding:"13px 20px",boxShadow:"0 1px 5px rgba(0,0,0,.05)",marginBottom:22}}>
+        <div style={{maxWidth:680,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <span style={{fontSize:22}}>🕌</span>
             <div>
-              <div style={{fontWeight:800,fontSize:16}}>Islamic Inheritance — Oman</div>
-              <div style={{fontSize:10,color:"#A8907A"}}>حساب الميراث الإسلامي · Husband died · Wife + Sons + Daughters · Oman RD 32/97 · {cfg.owner}/{cfg.repo}</div>
+              <div style={{fontWeight:800,fontSize:16}}>Family Inheritance</div>
+              <div style={{fontSize:10,color:"#A8907A"}}>حساب الميراث · 1 Wife · 6 Sons · 4 Daughters</div>
             </div>
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
             <SyncBadge status={sync} err={syncErr}/>
-            {step===5&&results&&<Btn sm v="print" onClick={()=>setShowPrint(true)}>🖨️ Reports</Btn>}
+            {step===4&&results&&<Btn sm v="print" onClick={()=>setShowPrint(true)}>🖨️ Print</Btn>}
             <Btn sm v="grey" onClick={()=>setShowCfg(true)}>⚙️</Btn>
-            <Btn sm v="ghost" onClick={logout}>🔒 Lock</Btn>
+            <Btn sm v="ghost" onClick={logout}>🔒</Btn>
           </div>
         </div>
       </div>
 
-      {sync==="loading"&&<div className="no-print" style={{textAlign:"center",padding:"60px 20px",color:"#8A7060"}}><div className="spin" style={{fontSize:32}}>⟳</div><div style={{fontWeight:600,marginTop:12}}>Loading from GitHub…</div></div>}
+      {sync==="loading"&&(
+        <div className="no-print" style={{textAlign:"center",padding:"60px 20px",color:"#8A7060"}}>
+          <div className="spin" style={{fontSize:34}}>⟳</div>
+          <div style={{fontWeight:600,marginTop:12}}>Loading from GitHub…</div>
+        </div>
+      )}
 
       {sync!=="loading"&&(
-        <div style={{maxWidth:760,margin:"0 auto",padding:"0 16px"}}>
-          {showPrint&&step===5&&results?(
-            <PrintReports estate={estate} heirs={heirs} lands={lands} ints={ints} engine={engine} onClose={()=>setShowPrint(false)}/>
+        <div style={{maxWidth:680,margin:"0 auto",padding:"0 16px"}}>
+
+          {showPrint&&step===4&&results?(
+            <PrintReports names={names} estate={estateNum} lands={lands} ints={ints} allHeirs={allHeirs} onClose={()=>setShowPrint(false)}/>
           ):(
             <div className="no-print">
-              <StepBar cur={step} go={setStep} canGo={canGo}/>
+              <StepBar cur={step}/>
 
-              {/* ── STEP 1: ESTATE ── */}
+              {/* ══ STEP 1: NAMES ══════════════════════════════════ */}
               {step===1&&(
                 <div className="fade">
-                  <div style={{marginBottom:16}}>
-                    <div style={{fontWeight:700,fontSize:18,marginBottom:4}}>🏛️ Estate Information</div>
-                    <div style={{fontSize:13,color:"#8A7060",lineHeight:1.7}}>
-                      Per Qur'an 4:12, the wife's share — and all shares — apply to the <strong>net estate after debts and valid bequests</strong>.
-                      Gross assets are not divided directly.
-                    </div>
+                  <div style={{marginBottom:20}}>
+                    <div style={{fontWeight:700,fontSize:20,marginBottom:6}}>👨‍👩‍👧‍👦 Family Members</div>
+                    <div style={{fontSize:13,color:"#8A7060"}}>Enter the name of each family member.</div>
                   </div>
-                  <div style={{padding:"12px 16px",background:"#F4F8FE",borderRadius:8,border:"1px solid #B0C8E0",marginBottom:16,fontSize:12,color:"#2A4060",lineHeight:1.8}}>
-                    <strong>⚖️ Governing rule:</strong> Muslim estates in Oman — Islamic Sharia per Oman's Basic Statute · Personal Status Law, Royal Decree 32/97 · Shares from Qur'an 4:11–12.<br/>
-                    <strong>This scenario:</strong> Husband passed away · Surviving wife (widow) + Sons + Daughters · Each son inherits twice each daughter's share.
-                  </div>
+
+                  {/* Wife */}
                   <Card style={{marginBottom:14}}>
-                    <div style={{...SL,marginBottom:14}}>Deceased</div>
-                    <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:12}}>
-                      <div style={{flex:"2 1 160px"}}><div style={{fontSize:12,color:"#8A7060",marginBottom:5}}>Name of Deceased</div><Inp value={estate.deceasedName} onChange={v=>setEstate(p=>({...p,deceasedName:v}))} placeholder="Full name"/></div>
-                      <div style={{flex:"1 1 140px"}}><div style={{fontSize:12,color:"#8A7060",marginBottom:5}}>Religion</div>
-                        <select value={estate.religion} onChange={e=>setEstate(p=>({...p,religion:e.target.value}))} style={{border:"1px solid #E0D4C0",borderRadius:8,padding:"9px 12px",fontSize:14,background:"#FDFAF5",color:"#2A2018",width:"100%"}}>
-                          <option value="Muslim">Muslim</option>
-                          <option value="Non-Muslim">Non-Muslim</option>
-                        </select>
-                      </div>
-                    </div>
-                    {estate.religion==="Non-Muslim"&&<div style={{padding:"10px 14px",background:"#FFF8EE",borderRadius:8,border:"1px solid #E8D898",fontSize:12,color:"#8A6020",marginBottom:12}}>⚠️ Non-Muslim estates in Oman are governed by separate provisions. Islamic inheritance rules do not apply unless the heirs elect otherwise. Consult a legal advisor.</div>}
-                    <div style={{...SL,marginBottom:14,marginTop:8}}>Estate Values (OMR)</div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:12}}>
-                      {[["Gross Estate Value","gross","Total value of all assets"],["Total Debts","debts","All outstanding debts to be settled first"],["Bequest Amount","bequest","Valid bequest (max 1/3 of estate to non-heirs)"]].map(([lbl,key,hint])=>(
-                        <div key={key}>
-                          <div style={{fontSize:12,color:"#8A7060",marginBottom:5}}>{lbl}</div>
-                          <Inp value={estate[key]||""} onChange={v=>setEstate(p=>({...p,[key]:parseFloat(v)||0}))} placeholder="0" type="number"/>
-                          <div style={{fontSize:10,color:"#A8907A",marginTop:3}}>{hint}</div>
+                    <div style={{fontSize:11,fontWeight:700,color:"#7040A0",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>👩 Wife (Widow)</div>
+                    <Inp value={names.wife} onChange={v=>setNames(p=>({...p,wife:v}))} placeholder="Wife's full name"/>
+                  </Card>
+
+                  {/* Sons */}
+                  <Card style={{marginBottom:14}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#2A6840",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>👦 Sons (6)</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                      {names.sons.map((n,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:10}}>
+                          <div style={{width:26,height:26,borderRadius:"50%",background:"#ECF6F0",border:"1px solid #7DC49A",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#2A6840",flexShrink:0}}>{i+1}</div>
+                          <Inp value={n} onChange={v=>{const s=[...names.sons];s[i]=v;setNames(p=>({...p,sons:s}));}} placeholder={`Son ${i+1} name`}/>
                         </div>
                       ))}
                     </div>
-                    {estate.bequest>0&&(
-                      <div style={{marginTop:12,padding:"10px 14px",background:"#F4F8FE",borderRadius:8,border:"1px solid #B0C8E0",fontSize:12,color:"#3A5A7A"}}>
-                        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
-                          <input type="checkbox" checked={estate.bequestIsHeir} onChange={e=>setEstate(p=>({...p,bequestIsHeir:e.target.checked}))} style={{width:16,height:16}}/>
-                          Bequest is in favour of an heir (requires consent of all other adult heirs under Oman law — bequest will not be deducted from net estate)
-                        </label>
-                      </div>
-                    )}
-                    {estate.gross>0&&(
-                      <div style={{marginTop:14,padding:"12px 16px",background:"#FFF8EE",borderRadius:8,border:"1px solid #E8D898",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <div style={{fontSize:13,color:"#8A6020"}}>
-                          Net Distributable Estate
-                          <div style={{fontSize:11,color:"#A8907A",marginTop:2}}>= {fmtOMR(estate.gross)} − debts {fmtOMR(estate.debts)}{!estate.bequestIsHeir&&estate.bequest>0?` − bequest ${fmtOMR(estate.bequest)}`:""}</div>
-                        </div>
-                        <div style={{fontWeight:800,fontSize:18,color:"#6A4810"}}>{fmtOMR(netEstate)}</div>
-                      </div>
-                    )}
                   </Card>
-                  {/* Example validator */}
-                  <div style={{padding:"12px 14px",background:"#F0F7EE",borderRadius:8,border:"1px solid #A0C890",marginBottom:14,fontSize:12,color:"#2A5030",lineHeight:1.7}}>
-                    <strong>📐 Example check (1 wife + 6 sons + 4 daughters, net = OMR 134,700):</strong><br/>
-                    Wife = OMR 16,837.500 (1/8 = 12.5%) · Each son = OMR 14,732.813 (7/64 = 10.9375%) · Each daughter = OMR 7,366.406 (7/128 = 5.46875%)
+
+                  {/* Daughters */}
+                  <Card style={{marginBottom:24}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#B03818",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>👧 Daughters (4)</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                      {names.daughters.map((n,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:10}}>
+                          <div style={{width:26,height:26,borderRadius:"50%",background:"#FAF0EB",border:"1px solid #DA9070",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#B03818",flexShrink:0}}>{i+1}</div>
+                          <Inp value={n} onChange={v=>{const d=[...names.daughters];d[i]=v;setNames(p=>({...p,daughters:d}));}} placeholder={`Daughter ${i+1} name`}/>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+
+                  <div style={{display:"flex",justifyContent:"flex-end"}}>
+                    <Btn onClick={()=>setStep(2)} disabled={!names.wife||names.sons.some(s=>!s)||names.daughters.some(d=>!d)}>
+                      Next: Estate Value →
+                    </Btn>
                   </div>
-                  <div style={{display:"flex",justifyContent:"flex-end"}}><Btn onClick={()=>setStep(2)} disabled={estate.gross<=0}>Next: Add Heirs →</Btn></div>
                 </div>
               )}
 
-              {/* ── STEP 2: HEIRS ── */}
+              {/* ══ STEP 2: ESTATE VALUE ════════════════════════════ */}
               {step===2&&(
                 <div className="fade">
-                  <div style={{marginBottom:14}}>
-                    <div style={{fontWeight:700,fontSize:18,marginBottom:4}}>👨‍👩‍👧‍👦 Heir List</div>
-                    <div style={{fontSize:13,color:"#8A7060"}}>Add <strong>every heir</strong>. In Islamic inheritance, adding or removing one heir changes everyone's share.</div>
+                  <div style={{marginBottom:20}}>
+                    <div style={{fontWeight:700,fontSize:20,marginBottom:6}}>💰 Total Estate Value</div>
+                    <div style={{fontSize:13,color:"#8A7060"}}>Enter the total value in OMR. This is the net amount to be divided.</div>
                   </div>
-                  <div style={{padding:"12px 16px",background:"#EEF8F2",borderRadius:8,border:"2px solid #7DC49A",marginBottom:14,lineHeight:1.8}}>
-                    <div style={{fontWeight:700,fontSize:14,color:"#2A6840",marginBottom:6}}>✅ Your Scenario</div>
-                    <div style={{fontSize:13,color:"#2A4030"}}>
-                      The <strong>husband / father has passed away.</strong><br/>
-                      His heirs are: his <strong>wife (widow)</strong> + their <strong>sons</strong> + their <strong>daughters</strong>.<br/>
-                      The sons and daughters are heirs as <em>children of the deceased</em> — not as brothers/sisters.<br/>
-                      In Islamic inheritance law, they inherit as <strong>Sons (ابن)</strong> and <strong>Daughters (بنت)</strong>.
-                    </div>
-                  </div>
+
                   <Card style={{marginBottom:14}}>
-                    <div style={SL}>{editH?"✏️ Edit":"Add a Heir"}</div>
-                    <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                      <Inp value={hName} onChange={setHName} placeholder="Full name" style={{flex:"1 1 150px"}}/>
-                      <select value={hRole} onChange={e=>setHRole(e.target.value)} style={{flex:"1 1 210px",border:"1px solid #E0D4C0",borderRadius:8,padding:"9px 12px",fontSize:13,background:"#FDFAF5",color:"#2A2018"}}>
-                        <optgroup label="── Main Heirs (Husband died) ──">
-                          <option value="wife">{ROLE.wife.emoji} {ROLE.wife.label}</option>
-                          <option value="son">{ROLE.son.emoji} {ROLE.son.label}</option>
-                          <option value="daughter">{ROLE.daughter.emoji} {ROLE.daughter.label}</option>
-                        </optgroup>
-                        <optgroup label="── If wife died instead ──">
-                          <option value="husband">{ROLE.husband.emoji} {ROLE.husband.label}</option>
-                        </optgroup>
-                        <optgroup label="── Parents of Deceased ──">
-                          <option value="father">{ROLE.father.emoji} {ROLE.father.label}</option>
-                          <option value="mother">{ROLE.mother.emoji} {ROLE.mother.label}</option>
-                        </optgroup>
-                        <optgroup label="── Grandchildren (Son's children) ──">
-                          <option value="grandson">{ROLE.grandson.emoji} {ROLE.grandson.label}</option>
-                          <option value="granddaughter">{ROLE.granddaughter.emoji} {ROLE.granddaughter.label}</option>
-                        </optgroup>
-                        <optgroup label="── Grandparents ──">
-                          <option value="pgrandfather">{ROLE.pgrandfather.emoji} {ROLE.pgrandfather.label}</option>
-                          <option value="mgrandmother">{ROLE.mgrandmother.emoji} {ROLE.mgrandmother.label}</option>
-                          <option value="pgrandmother">{ROLE.pgrandmother.emoji} {ROLE.pgrandmother.label}</option>
-                        </optgroup>
-                        <optgroup label="── Siblings of Deceased (only if no children) ──">
-                          <option value="fullbrother">{ROLE.fullbrother.emoji} {ROLE.fullbrother.label}</option>
-                          <option value="fullsister">{ROLE.fullsister.emoji} {ROLE.fullsister.label}</option>
-                          <option value="consbrother">{ROLE.consbrother.emoji} {ROLE.consbrother.label}</option>
-                          <option value="conssister">{ROLE.conssister.emoji} {ROLE.conssister.label}</option>
-                          <option value="uterinesib">{ROLE.uterinesib.emoji} {ROLE.uterinesib.label}</option>
-                        </optgroup>
-                      </select>
-                      {editH?<><Btn v="green" onClick={()=>saveH(editH)}>Save</Btn><Btn v="grey" sm onClick={()=>{setEditH(null);setHName("");setHRole("son");}}>Cancel</Btn></>:<Btn v="green" onClick={addHeir} disabled={!hName.trim()}>+ Add</Btn>}
-                    </div>
-                  </Card>
-                  {heirs.length>0&&(
-                    <Card style={{marginBottom:16}}>
-                      <div style={{...SL,marginBottom:12}}>Heirs ({heirs.length}) — Calculated Shares</div>
-                      {heirs.map(h=>{const r=ROLE[h.role],sh=engine.shares[h.id]||0;return(
-                        <div key={h.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"#FAF6EF",borderRadius:8,border:`1px solid ${editH===h.id?"#B03818":"#EAE0D0"}`,marginBottom:8}}>
-                          <div style={{display:"flex",alignItems:"center",gap:10}}>
-                            <span style={{fontSize:20}}>{r.emoji}</span>
-                            <div>
-                              <div style={{fontWeight:700,fontSize:14}}>{h.name}</div>
-                              <div style={{fontSize:11,color:"#A8907A"}}>{r.label}</div>
-                            </div>
-                          </div>
-                          <div style={{display:"flex",alignItems:"center",gap:10}}>
-                            {sh>0&&(
-                              <div style={{textAlign:"right"}}>
-                                <div style={{fontWeight:700,color:r.color,fontSize:14}}>{engine.fracs[h.id]||"0"}</div>
-                                <div style={{fontSize:11,color:"#8A7060"}}>{fmtPct2(sh)} · {fmtOMR(sh*netEstate)}</div>
+                    <div style={{fontSize:12,color:"#8A7060",marginBottom:8}}>Total Estate Value (OMR)</div>
+                    <Inp value={estate} onChange={setEstate} placeholder="e.g. 134700" type="number" style={{fontSize:20,fontWeight:700}}/>
+                    {estateNum>0&&(
+                      <div style={{marginTop:16,padding:"14px 16px",background:"#F4FAF0",borderRadius:10,border:"1px solid #A0C890"}}>
+                        <div style={{fontSize:11,fontWeight:700,color:"#2A6840",marginBottom:10,textTransform:"uppercase",letterSpacing:".06em"}}>Preview — Islamic Shares</div>
+                        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                          {[
+                            {label:`👩 ${names.wife}`, role:"wife",  share:WIFE_SHARE, frac:"1/8"},
+                            {label:`👦 Each Son (×6)`, role:"son",   share:SON_SHARE,  frac:"7/64"},
+                            {label:`👧 Each Daughter (×4)`, role:"daughter", share:DAU_SHARE, frac:"7/128"},
+                          ].map(r=>(
+                            <div key={r.role} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:"#fff",borderRadius:8,border:"1px solid #D4E8CC"}}>
+                              <div>
+                                <span style={{fontWeight:600,fontSize:13}}>{r.label}</span>
+                                <span style={{fontSize:11,color:"#8A7060",marginLeft:8}}>{r.frac} = {(r.share*100).toFixed(6)}%</span>
                               </div>
-                            )}
-                            {sh===0&&<span style={{fontSize:11,color:"#C08060",background:"#FEF0E8",border:"1px solid #E8C0A8",borderRadius:6,padding:"2px 8px"}}>Blocked / 0%</span>}
-                            <button onClick={()=>startH(h)} style={{background:"none",border:"1px solid #DDD4C4",borderRadius:6,cursor:"pointer",color:"#8A7060",fontSize:12,padding:"3px 8px"}}>✏️</button>
-                            <button onClick={()=>setHeirs(p=>p.filter(x=>x.id!==h.id))} style={{background:"none",border:"none",cursor:"pointer",color:"#D4907A",fontSize:16}}>✕</button>
-                          </div>
+                              <div style={{fontWeight:800,fontSize:14,color:"#2A6840"}}>{fmt(r.share*estateNum)}</div>
+                            </div>
+                          ))}
                         </div>
-                      );})}
-                      {engine.warnings.length>0&&(
-                        <div style={{marginTop:10,padding:"10px 14px",background:"#FFF8EE",borderRadius:8,border:"1px solid #E8D898",fontSize:12,color:"#8A6020"}}>
-                          {engine.warnings.map((w,i)=><div key={i} style={{marginBottom:i<engine.warnings.length-1?6:0}}>⚠️ {w}</div>)}
+                        <div style={{marginTop:10,fontSize:11,color:"#6A8060",borderTop:"1px solid #C0DCC0",paddingTop:8}}>
+                          Total sons: {fmt(SON_SHARE*estateNum*6)} · Total daughters: {fmt(DAU_SHARE*estateNum*4)} · Wife: {fmt(WIFE_SHARE*estateNum)}
                         </div>
-                      )}
-                      <div style={{marginTop:12,padding:"10px 14px",background:"#F5EDE6",borderRadius:8,border:"1px solid #E8D4C0",fontSize:11,color:"#8A7060"}}>
-                        <strong>Legal basis per heir:</strong>
-                        {heirs.filter(h=>engine.basis[h.id]).map(h=><div key={h.id} style={{marginTop:4}}><span style={{color:ROLE[h.role].color,fontWeight:600}}>{h.name}:</span> {engine.basis[h.id]}</div>)}
                       </div>
-                    </Card>
-                  )}
+                    )}
+                  </Card>
+
                   <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <Btn v="ghost" onClick={()=>setStep(1)}>← Estate</Btn>
-                    <Btn onClick={()=>setStep(3)} disabled={heirs.length===0}>Next: Confirm Heirs →</Btn>
+                    <Btn v="ghost" onClick={()=>setStep(1)}>← Names</Btn>
+                    <Btn onClick={()=>setStep(3)} disabled={!estateNum}>Next: Lands →</Btn>
                   </div>
                 </div>
               )}
 
-              {/* ── STEP 3: CONFIRMATION ── */}
+              {/* ══ STEP 3: LANDS ═══════════════════════════════════ */}
               {step===3&&(
                 <div className="fade">
-                  <div style={{marginBottom:14}}>
-                    <div style={{fontWeight:700,fontSize:18,marginBottom:4}}>✅ Confirm All Heirs</div>
-                    <div style={{fontSize:13,color:"#8A7060",lineHeight:1.7}}>
-                      Answer <strong>every question below</strong>. The result cannot be marked final until all are answered.<br/>
-                      In Islamic inheritance, one additional heir — especially father, mother, or a second wife — changes the entire distribution under the same Qur'anic rules.
-                    </div>
+                  <div style={{marginBottom:20}}>
+                    <div style={{fontWeight:700,fontSize:20,marginBottom:6}}>🏡 Inherited Lands</div>
+                    <div style={{fontSize:13,color:"#8A7060"}}>Add each land property and its value.</div>
                   </div>
-                  <div style={{padding:"10px 16px",background:"#FFF4EE",borderRadius:8,border:"1px solid #E8C090",marginBottom:14,fontSize:12,color:"#8A4020",lineHeight:1.7}}>
-                    <strong>Reminder — your scenario:</strong> The <strong>husband died</strong>. His wife is alive. Their sons and daughters are alive.
-                    The sons and daughters are heirs as <strong>children of the deceased</strong> — inheritance law does not call them brothers and sisters; it calls them <strong>sons (أبناء)</strong> and <strong>daughters (بنات)</strong>.
-                  </div>
-                  <Card style={{marginBottom:16}}>
-                    <div style={{...SL,marginBottom:14}}>Heir Presence Checklist</div>
-                    {/* Critical heirs first */}
-                    <div style={{fontSize:11,fontWeight:700,color:"#B03818",marginBottom:8,textTransform:"uppercase",letterSpacing:".06em"}}>⚠️ Critical — These heirs change ALL shares</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
-                      {CONFIRM_LIST.filter(c=>c.critical).map(c=>{
-                        const hasInList=heirs.some(h=>h.role===c.key);
-                        const ans=confirmed[c.key];
-                        return(
-                          <div key={c.key} style={{borderRadius:8,border:`2px solid ${ans===true?"#7DC49A":ans===false?"#EAE0D0":"#F0A070"}`,overflow:"hidden"}}>
-                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:ans===true?"#ECF6F0":ans===false?"#FAF6EF":"#FFF4EE",gap:10}}>
-                              <div style={{flex:1}}>
-                                <div style={{fontSize:13,color:"#2A2018",fontWeight:600}}>
-                                  {ROLE[c.key]?.emoji} {c.q}
-                                  {hasInList&&<span style={{marginLeft:8,fontSize:11,color:"#2A6840",background:"#ECF6F0",border:"1px solid #7DC49A",borderRadius:10,padding:"1px 8px"}}>✓ Added</span>}
-                                </div>
-                                {ans==null&&<div style={{fontSize:11,color:"#B05020",marginTop:3}}>⚠️ {c.note}</div>}
-                              </div>
-                              <div style={{display:"flex",gap:6,flexShrink:0}}>
-                                <button onClick={()=>setConfirmed(p=>({...p,[c.key]:true}))} style={{padding:"5px 14px",borderRadius:6,border:`2px solid ${ans===true?"#2A6840":"#C0C0C0"}`,background:ans===true?"#2A6840":"#fff",color:ans===true?"#fff":"#666",cursor:"pointer",fontWeight:700,fontSize:12}}>Yes</button>
-                                <button onClick={()=>setConfirmed(p=>({...p,[c.key]:false}))} style={{padding:"5px 14px",borderRadius:6,border:`2px solid ${ans===false?"#B03818":"#C0C0C0"}`,background:ans===false?"#B03818":"#fff",color:ans===false?"#fff":"#666",cursor:"pointer",fontWeight:700,fontSize:12}}>No</button>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div style={{fontSize:11,fontWeight:700,color:"#6A5A48",marginBottom:8,textTransform:"uppercase",letterSpacing:".06em"}}>Other Potential Heirs</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                      {CONFIRM_LIST.filter(c=>!c.critical).map(c=>{
-                        const hasInList=heirs.some(h=>h.role===c.key);
-                        const ans=confirmed[c.key];
-                        return(
-                          <div key={c.key} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 14px",background:ans===true?"#ECF6F0":ans===false?"#FAF6EF":"#FDFAF5",borderRadius:8,border:`1px solid ${ans===true?"#7DC49A":ans===false?"#EAE0D0":"#E0D4C0"}`,gap:10}}>
-                            <div style={{flex:1,fontSize:12,color:"#2A2018"}}>
-                              {ROLE[c.key]?.emoji} {c.q}
-                              {hasInList&&<span style={{marginLeft:8,fontSize:11,color:"#2A6840",background:"#ECF6F0",border:"1px solid #7DC49A",borderRadius:10,padding:"1px 8px"}}>✓ Added</span>}
-                            </div>
-                            <div style={{display:"flex",gap:6,flexShrink:0}}>
-                              <button onClick={()=>setConfirmed(p=>({...p,[c.key]:true}))} style={{padding:"4px 12px",borderRadius:6,border:`2px solid ${ans===true?"#2A6840":"#C0C0C0"}`,background:ans===true?"#2A6840":"#fff",color:ans===true?"#fff":"#666",cursor:"pointer",fontWeight:600,fontSize:11}}>Yes</button>
-                              <button onClick={()=>setConfirmed(p=>({...p,[c.key]:false}))} style={{padding:"4px 12px",borderRadius:6,border:`2px solid ${ans===false?"#B03818":"#C0C0C0"}`,background:ans===false?"#B03818":"#fff",color:ans===false?"#fff":"#666",cursor:"pointer",fontWeight:600,fontSize:11}}>No</button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div style={{marginTop:14,padding:"10px 14px",background:allConfirmed?"#ECF6F0":"#FFF8EE",borderRadius:8,border:`1px solid ${allConfirmed?"#7DC49A":"#E8D898"}`,fontSize:12,color:allConfirmed?"#2A6840":"#8A6020",fontWeight:600}}>
-                      {allConfirmed?"✅ All heirs confirmed — result will be definitive.":"⚠️ "+CONFIRM_LIST.filter(c=>confirmed[c.key]==null).length+" questions unanswered — result will be marked PROVISIONAL."}
-                    </div>
-                  </Card>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <Btn v="ghost" onClick={()=>setStep(2)}>← Heirs</Btn>
-                    <Btn onClick={()=>setStep(4)}>Next: Lands →</Btn>
-                  </div>
-                </div>
-              )}
 
-              {/* ── STEP 4: LANDS ── */}
-              {step===4&&(
-                <div className="fade">
-                  <div style={{marginBottom:14}}><div style={{fontWeight:700,fontSize:18,marginBottom:4}}>🏡 Inherited Lands</div><div style={{fontSize:13,color:"#8A7060"}}>Add all land properties.</div></div>
                   <Card style={{marginBottom:14}}>
-                    <div style={SL}>{editL?"✏️ Edit":"Add a Land"}</div>
+                    <div style={{fontSize:11,fontWeight:700,color:"#8A7060",textTransform:"uppercase",letterSpacing:".06em",marginBottom:12}}>{editL?"✏️ Edit Land":"Add a Land"}</div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
                       <Inp value={lName} onChange={setLName} placeholder="Land name" style={{flex:"2 1 140px"}}/>
                       <Inp value={lLoc}  onChange={setLLoc}  placeholder="Location (optional)" style={{flex:"2 1 130px"}}/>
                       <Inp value={lVal}  onChange={setLVal}  placeholder="Value (OMR)" type="number" style={{flex:"1 1 110px"}}/>
-                      {editL?<><Btn v="green" onClick={()=>saveL(editL)}>Save</Btn><Btn v="grey" sm onClick={()=>{setEditL(null);setLName("");setLVal("");setLLoc("");}}>Cancel</Btn></>:<Btn v="green" onClick={addLand} disabled={!lName.trim()||!lVal}>+ Add</Btn>}
+                      {editL?(
+                        <>
+                          <Btn v="primary" onClick={()=>{const v=parseFloat(lVal);if(!lName.trim()||!v)return;setLands(p=>p.map(l=>l.id===editL?{...l,name:lName.trim(),value:v,loc:lLoc.trim()}:l));setEditL(null);setLName("");setLVal("");setLLoc("");}}>Save</Btn>
+                          <Btn v="grey" sm onClick={()=>{setEditL(null);setLName("");setLVal("");setLLoc("");}}>Cancel</Btn>
+                        </>
+                      ):(
+                        <Btn v="primary" onClick={()=>{const v=parseFloat(lVal);if(!lName.trim()||!v)return;setLands(p=>[...p,{id:uid(),name:lName.trim(),value:v,loc:lLoc.trim()}]);setLName("");setLVal("");setLLoc("");}}>+ Add</Btn>
+                      )}
                     </div>
                   </Card>
+
                   {lands.length>0&&(
-                    <Card style={{marginBottom:16}}>
-                      <div style={{...SL,marginBottom:12}}>Lands ({lands.length})</div>
+                    <Card style={{marginBottom:20}}>
                       {lands.map((l,i)=>(
-                        <div key={l.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:i%2===0?"#FAF6EF":"#fff",borderRadius:8,border:`1px solid ${editL===l.id?"#B03818":"#EAE0D0"}`,marginBottom:8}}>
-                          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:18}}>🗺️</span><div><div style={{fontWeight:700,fontSize:14}}>{l.name}</div><div style={{fontSize:12,color:"#8A7060"}}>{l.loc&&<span style={{marginRight:8}}>📍{l.loc}</span>}<strong style={{color:"#B03818"}}>{fmtOMR(l.value)}</strong></div></div></div>
+                        <div key={l.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",background:i%2===0?"#FAF6EF":"#fff",borderRadius:8,border:`1px solid ${editL===l.id?"#2A6840":"#EAE0D0"}`,marginBottom:8}}>
+                          <div style={{display:"flex",alignItems:"center",gap:10}}>
+                            <span style={{fontSize:18}}>🗺️</span>
+                            <div>
+                              <div style={{fontWeight:700,fontSize:14}}>{l.name}</div>
+                              <div style={{fontSize:12,color:"#8A7060"}}>{l.loc&&<span style={{marginRight:8}}>📍{l.loc}</span>}<strong style={{color:"#B03818"}}>{fmt(l.value,0)}</strong></div>
+                            </div>
+                          </div>
                           <div style={{display:"flex",gap:6}}>
-                            <button onClick={()=>startL(l)} style={{background:"none",border:"1px solid #DDD4C4",borderRadius:6,cursor:"pointer",color:"#8A7060",fontSize:12,padding:"3px 8px"}}>✏️</button>
+                            <button onClick={()=>{setEditL(l.id);setLName(l.name);setLVal(String(l.value));setLLoc(l.loc||"");}} style={{background:"none",border:"1px solid #DDD4C4",borderRadius:6,cursor:"pointer",color:"#8A7060",fontSize:12,padding:"3px 8px"}}>✏️</button>
                             <button onClick={()=>setLands(p=>p.filter(x=>x.id!==l.id))} style={{background:"none",border:"none",cursor:"pointer",color:"#D4907A",fontSize:16}}>✕</button>
                           </div>
                         </div>
                       ))}
-                      <div style={{marginTop:10,padding:"10px 14px",background:"#FFF8EE",borderRadius:8,border:"1px solid #E8D898",display:"flex",justifyContent:"space-between"}}><span style={{fontSize:13,color:"#8A6020"}}>Total Land Value</span><span style={{fontWeight:800,fontSize:16,color:"#6A4810"}}>{fmtOMR(lands.reduce((s,l)=>s+l.value,0))}</span></div>
+                      <div style={{marginTop:8,padding:"10px 14px",background:"#FFF8EE",borderRadius:8,border:"1px solid #E8D898",display:"flex",justifyContent:"space-between"}}>
+                        <span style={{fontSize:13,color:"#8A6020"}}>Total land value</span>
+                        <span style={{fontWeight:800,color:"#6A4810"}}>{fmt(lands.reduce((s,l)=>s+l.value,0),0)}</span>
+                      </div>
                     </Card>
                   )}
+
                   <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <Btn v="ghost" onClick={()=>setStep(3)}>← Confirm</Btn>
-                    <Btn onClick={()=>setStep(5)} disabled={lands.length===0}>Next: Interests →</Btn>
+                    <Btn v="ghost" onClick={()=>setStep(2)}>← Estate</Btn>
+                    <Btn onClick={()=>setStep(4)} disabled={lands.length===0}>Next: Select Interests →</Btn>
                   </div>
                 </div>
               )}
 
-              {/* ── STEP 5: INTERESTS + RESULTS ── */}
-              {step===5&&(
+              {/* ══ STEP 4: INTERESTS + RESULTS ═════════════════════ */}
+              {step===4&&(
                 <div className="fade">
-                  {/* Provisional warning */}
-                  {isProvisional&&(
-                    <div style={{padding:"12px 16px",background:"#FFF8EE",borderRadius:10,border:"2px solid #E8D898",marginBottom:16,fontSize:13,color:"#8A5020"}}>
-                      <strong>⚠️ PROVISIONAL RESULT</strong> — Heir confirmation incomplete. Go back to Step 3 to confirm all heirs.
-                      Under Islamic law, one missing heir can change everyone's share. Do not use for legal purposes until all confirmed.
+                  <div style={{marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:20,marginBottom:4}}>📊 Interests & Results</div>
+                      <div style={{fontSize:13,color:"#8A7060"}}>Tap each person who wants a share of that land.</div>
                     </div>
-                  )}
+                    {results&&<Btn v="print" sm onClick={()=>setShowPrint(true)}>🖨️ Print / PDF</Btn>}
+                  </div>
 
-                  {/* Assumptions block — per approved spec */}
-                  {(()=>{
-                    const wives=heirs.filter(h=>h.role==="wife");
-                    const sons=heirs.filter(h=>h.role==="son");
-                    const daughters=heirs.filter(h=>h.role==="daughter");
-                    const hasOther=heirs.some(h=>!["wife","son","daughter"].includes(h.role));
-                    const isWidow=wives.length>0&&sons.length>0&&!hasOther;
-                    const caseName=wives.length===1&&sons.length===6&&daughters.length===4&&!hasOther?"widow_6sons_4daughters_only":isWidow?`widow_${sons.length}sons_${daughters.length}daughters`:"custom_case";
-                    return(
-                      <Card style={{marginBottom:14,border:"1px solid #C0D4E8",background:"#F4F8FE"}}>
-                        <div style={{...SL,color:"#1A4F7A",marginBottom:10}}>📋 Assumptions — {caseName}</div>
-                        <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
-                          {[
-                            ["Jurisdiction","Oman (Royal Decree 32/97)"],
-                            ["Religion","Muslim"],
-                            ["Deceased","Male (husband)"],
-                            ["Wife count",`${wives.length} wife${wives.length!==1?"s":""}`],
-                            ["Sons",sons.length],
-                            ["Daughters",daughters.length],
-                            ["Net estate",fmtOMR(netEstate)],
-                            ["Other heirs",hasOther?"Yes — see above":"None affecting result"],
-                          ].map(([l,v])=>(
-                            <div key={l} style={{background:"#fff",border:"1px solid #B0C8E0",borderRadius:8,padding:"5px 12px",fontSize:12}}>
-                              <span style={{color:"#6A8AAA",fontWeight:600}}>{l}:</span> <span style={{color:"#1A3050",fontWeight:700}}>{v}</span>
-                            </div>
-                          ))}
-                        </div>
-                        {wives.length===1&&sons.length>0&&daughters.length>0&&!hasOther&&(
-                          <div style={{fontSize:12,color:"#2A5080",background:"#E8F2FA",borderRadius:6,padding:"8px 12px",lineHeight:1.6}}>
-                            <strong>Rule applied:</strong> Wife = 1/8 (children exist, Qur'an 4:12) · Remainder 7/8 → children as عصبة · Each son = 2× each daughter (Qur'an 4:11)
-                            <br/><strong>Units:</strong> ({sons.length}×2) + ({daughters.length}×1) = {sons.length*2+daughters.length} total units · Each son = 2/{sons.length*2+daughters.length} of 7/8 · Each daughter = 1/{sons.length*2+daughters.length} of 7/8
-                            {!allConfirmed&&<><br/><span style={{color:"#B05020",fontWeight:600}}>⚠️ Result valid only if no father, no mother, no additional wives, no other heirs confirmed absent.</span></>}
-                          </div>
-                        )}
-                      </Card>
-                    );
-                  })()}
+                  {/* Shares summary strip */}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:20}}>
+                    {[
+                      {label:"👩 "+names.wife, sub:"Wife · 1/8", amt:WIFE_SHARE*estateNum, col:"#7040A0",bg:"#F3EEF8",bd:"#BC98E0"},
+                      {label:"👦 Each Son",    sub:`7/64 · ×${names.sons.filter(Boolean).length}`, amt:SON_SHARE*estateNum, col:"#2A6840",bg:"#ECF6F0",bd:"#7DC49A"},
+                      {label:"👧 Each Daughter",sub:`7/128 · ×${names.daughters.filter(Boolean).length}`, amt:DAU_SHARE*estateNum, col:"#B03818",bg:"#FAF0EB",bd:"#DA9070"},
+                    ].map(r=>(
+                      <div key={r.label} style={{background:r.bg,border:`1px solid ${r.bd}`,borderRadius:10,padding:"12px 14px"}}>
+                        <div style={{fontSize:12,fontWeight:700,color:r.col,marginBottom:3}}>{r.label}</div>
+                        <div style={{fontSize:10,color:r.col,opacity:.7,marginBottom:6}}>{r.sub}</div>
+                        <div style={{fontWeight:800,fontSize:13,color:"#2A2018"}}>{fmt(r.amt)}</div>
+                      </div>
+                    ))}
+                  </div>
 
-                  {/* Islamic shares summary */}
-                  <Card style={{marginBottom:16,border:"1px solid #D4E8C4",background:"#F4FAF0"}}>
-                    <div style={{...SL,color:"#2A6840",marginBottom:12}}>📖 Islamic Shares Applied (فرائض)</div>
-                    <div style={{overflowX:"auto"}}>
-                      <table style={{width:"100%",fontSize:13,borderCollapse:"collapse"}}>
-                        <thead><tr style={{background:"#EEF8E8"}}>{["Heir","Role","Fraction","Share %","Amount (OMR)","Legal Basis"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:h==="Heir"?"left":"center",fontWeight:700,color:"#2A6840",fontSize:11,textTransform:"uppercase",letterSpacing:".04em",whiteSpace:"nowrap",borderBottom:"2px solid #A0C890"}}>{h}</th>)}</tr></thead>
-                        <tbody>
-                          {heirs.map((h,i)=>{
-                            const r=ROLE[h.role],sh=engine.shares[h.id]||0;
-                            return(
-                              <tr key={h.id} style={{background:i%2===0?"#F8FBF6":"#fff",borderBottom:"1px solid #E0ECD8"}}>
-                                <td style={{padding:"9px 10px"}}><div style={{display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:17}}>{r.emoji}</span><div><div style={{fontWeight:700,fontSize:13}}>{h.name}</div></div></div></td>
-                                <td style={{padding:"9px 10px",textAlign:"center",fontSize:11,color:r.color,fontWeight:600}}>{r.short}</td>
-                                <td style={{padding:"9px 10px",textAlign:"center",fontWeight:800,fontSize:15,color:"#1A4F2A"}}>{engine.fracs[h.id]||"0"}</td>
-                                <td style={{padding:"9px 10px",textAlign:"center",color:"#3A6830"}}>{fmtPct(sh)}</td>
-                                <td style={{padding:"9px 10px",textAlign:"center",fontWeight:700,color:"#2A2018"}}>{fmtOMR(sh*netEstate)}</td>
-                                <td style={{padding:"9px 10px",fontSize:11,color:"#5A7850",fontStyle:"italic",maxWidth:180}}>{engine.basis[h.id]||"—"}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                        <tfoot><tr style={{background:"#FFF8EE",borderTop:"2px solid #C8A840"}}><td colSpan={4} style={{padding:"9px 10px",fontWeight:700,color:"#6A4810",fontSize:13}}>Net Distributable Estate</td><td style={{padding:"9px 10px",textAlign:"center",fontWeight:800,fontSize:15,color:"#6A4810"}}>{fmtOMR(netEstate)}</td><td/></tr></tfoot>
-                      </table>
-                    </div>
-                    <div style={{marginTop:10,padding:"8px 12px",background:"#FFF8EE",borderRadius:6,border:"1px solid #E8D898",fontSize:11,color:"#8A6020"}}>
-                      <strong>⚠️ Result is valid only if no other heir exists.</strong>
-                      Shares change if: father is alive · mother is alive · more than one wife · any other heir present.
-                      Gross: {fmtOMR(estate.gross)} · Debts: {fmtOMR(estate.debts)} · Bequest: {fmtOMR(estate.bequest)} · <strong>Net: {fmtOMR(netEstate)}</strong>
-                    </div>
-                  </Card>
-
-                  {/* Land interests */}
-                  <div style={{marginBottom:14,fontWeight:700,fontSize:16}}>☑️ Who Wants Which Land?</div>
+                  {/* Land interest cards */}
                   {lands.map(land=>{
                     const intIds=Object.entries(ints[land.id]||{}).filter(([,v])=>v).map(([id])=>id);
-                    const prev=intIds.length>0?divideLand(land.value,intIds,engine.shares):null;
+                    const prev=intIds.length>0?divideLand(land.value,intIds,allHeirs):null;
                     return(
                       <Card key={land.id} style={{marginBottom:14}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
-                          <div><div style={{fontWeight:700,fontSize:15}}>🗺️ {land.name}</div><div style={{fontSize:12,color:"#8A7060",marginTop:2}}>{land.loc&&<span style={{marginRight:8}}>📍{land.loc}</span>}<strong style={{color:"#B03818"}}>{fmtOMR(land.value)}</strong></div></div>
-                          <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#A8907A"}}>Interested</div><div style={{fontWeight:800,fontSize:20,color:intIds.length>0?"#2A6840":"#C0907A"}}>{intIds.length}</div></div>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+                          <div>
+                            <div style={{fontWeight:700,fontSize:16}}>🗺️ {land.name}</div>
+                            <div style={{fontSize:12,color:"#8A7060",marginTop:2}}>{land.loc&&<span style={{marginRight:8}}>📍{land.loc}</span>}<strong style={{color:"#B03818"}}>{fmt(land.value,0)}</strong></div>
+                          </div>
+                          <div style={{textAlign:"right"}}>
+                            <div style={{fontSize:10,color:"#A8907A"}}>Selected</div>
+                            <div style={{fontWeight:800,fontSize:22,color:intIds.length>0?"#2A6840":"#C0907A"}}>{intIds.length}</div>
+                          </div>
                         </div>
-                        <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                          {heirs.map(h=>{const on=!!(ints[land.id]?.[h.id]),r=ROLE[h.role];return(
-                            <button key={h.id} onClick={()=>toggleInt(land.id,h.id)} style={{border:`2px solid ${on?r.color:r.bd}`,background:on?r.bg:"#fff",borderRadius:10,padding:"7px 12px",cursor:"pointer",transition:"all .15s",display:"flex",alignItems:"center",gap:5,boxShadow:on?`0 2px 8px ${r.color}30`:"none",transform:on?"scale(1.03)":"scale(1)"}}>
-                              <span style={{fontSize:15}}>{r.emoji}</span>
-                              <div style={{textAlign:"left"}}><div style={{fontSize:12,fontWeight:700,color:on?r.color:"#6A5A4A"}}>{h.name}</div><div style={{fontSize:10,color:on?r.color:"#A8907A"}}>{on?"✓ Interested":"Tap"}</div></div>
+
+                        {/* Wife */}
+                        {names.wife&&(()=>{const h=allHeirs.find(x=>x.role==="wife");if(!h)return null;const on=!!(ints[land.id]?.[h.id]);return(
+                          <div style={{marginBottom:10}}>
+                            <div style={{fontSize:10,fontWeight:700,color:"#7040A0",marginBottom:6,textTransform:"uppercase",letterSpacing:".06em"}}>Wife</div>
+                            <button onClick={()=>toggleInt(land.id,h.id)} style={{border:`2px solid ${on?"#7040A0":"#BC98E0"}`,background:on?"#F3EEF8":"#fff",borderRadius:10,padding:"8px 16px",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:8,transition:"all .15s",boxShadow:on?"0 2px 8px rgba(112,64,160,.2)":"none"}}>
+                              <span style={{fontSize:16}}>👩</span>
+                              <div style={{textAlign:"left"}}>
+                                <div style={{fontSize:13,fontWeight:700,color:on?"#7040A0":"#6A5A4A"}}>{h.name}</div>
+                                <div style={{fontSize:10,color:on?"#7040A0":"#A8907A"}}>{on?"✓ Selected":"Tap to select"}</div>
+                              </div>
                             </button>
-                          );})}
+                          </div>
+                        );})()}
+
+                        {/* Sons */}
+                        <div style={{marginBottom:10}}>
+                          <div style={{fontSize:10,fontWeight:700,color:"#2A6840",marginBottom:6,textTransform:"uppercase",letterSpacing:".06em"}}>Sons</div>
+                          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                            {allHeirs.filter(h=>h.role==="son").map(h=>{const on=!!(ints[land.id]?.[h.id]);return(
+                              <button key={h.id} onClick={()=>toggleInt(land.id,h.id)} style={{border:`2px solid ${on?"#2A6840":"#7DC49A"}`,background:on?"#ECF6F0":"#fff",borderRadius:10,padding:"7px 14px",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:7,transition:"all .15s",boxShadow:on?"0 2px 8px rgba(42,104,64,.2)":"none",transform:on?"scale(1.03)":"scale(1)"}}>
+                                <span style={{fontSize:14}}>👦</span>
+                                <div style={{textAlign:"left"}}>
+                                  <div style={{fontSize:12,fontWeight:700,color:on?"#2A6840":"#6A5A4A"}}>{h.name}</div>
+                                  <div style={{fontSize:10,color:on?"#2A6840":"#A8907A"}}>{on?"✓":"Tap"}</div>
+                                </div>
+                              </button>
+                            );})}
+                          </div>
                         </div>
-                        {prev&&<div style={{marginTop:10,padding:"9px 12px",background:"#F7F4EE",borderRadius:8,border:"1px solid #E8DDD0"}}>
-                          <div style={{fontSize:11,fontWeight:700,color:"#8A7060",marginBottom:5}}>Live split (proportional to Islamic shares)</div>
-                          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>{intIds.map(id=>{const h=heirs.find(x=>x.id===id),r=ROLE[h.role];return <div key={id} style={{fontSize:12,padding:"3px 10px",borderRadius:6,background:r.bg,color:r.color,border:`1px solid ${r.bd}`,fontWeight:600}}>{h.name}: {fmtOMR(prev[id])}</div>;})}</div>
-                        </div>}
+
+                        {/* Daughters */}
+                        <div>
+                          <div style={{fontSize:10,fontWeight:700,color:"#B03818",marginBottom:6,textTransform:"uppercase",letterSpacing:".06em"}}>Daughters</div>
+                          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                            {allHeirs.filter(h=>h.role==="daughter").map(h=>{const on=!!(ints[land.id]?.[h.id]);return(
+                              <button key={h.id} onClick={()=>toggleInt(land.id,h.id)} style={{border:`2px solid ${on?"#B03818":"#DA9070"}`,background:on?"#FAF0EB":"#fff",borderRadius:10,padding:"7px 14px",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:7,transition:"all .15s",boxShadow:on?"0 2px 8px rgba(176,56,24,.2)":"none",transform:on?"scale(1.03)":"scale(1)"}}>
+                                <span style={{fontSize:14}}>👧</span>
+                                <div style={{textAlign:"left"}}>
+                                  <div style={{fontSize:12,fontWeight:700,color:on?"#B03818":"#6A5A4A"}}>{h.name}</div>
+                                  <div style={{fontSize:10,color:on?"#B03818":"#A8907A"}}>{on?"✓":"Tap"}</div>
+                                </div>
+                              </button>
+                            );})}
+                          </div>
+                        </div>
+
+                        {/* Live preview */}
+                        {prev&&(
+                          <div style={{marginTop:14,padding:"10px 14px",background:"#F7F4EE",borderRadius:8,border:"1px solid #E8DDD0"}}>
+                            <div style={{fontSize:11,fontWeight:700,color:"#8A7060",marginBottom:8,textTransform:"uppercase",letterSpacing:".05em"}}>Split preview</div>
+                            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                              {intIds.map(id=>{
+                                const h=allHeirs.find(x=>x.id===id);
+                                const col=h.role==="wife"?"#7040A0":h.role==="son"?"#2A6840":"#B03818";
+                                const bg=h.role==="wife"?"#F3EEF8":h.role==="son"?"#ECF6F0":"#FAF0EB";
+                                const bd=h.role==="wife"?"#BC98E0":h.role==="son"?"#7DC49A":"#DA9070";
+                                return <div key={id} style={{fontSize:12,padding:"4px 12px",borderRadius:6,background:bg,color:col,border:`1px solid ${bd}`,fontWeight:600}}>{h.name}: {fmt(prev[id])}</div>;
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </Card>
                     );
                   })}
@@ -1195,47 +824,84 @@ function App(){
                   {/* Results table */}
                   {results&&(
                     <>
-                      <Card style={{marginBottom:14}}>
-                        <div style={{...SL,marginBottom:12}}>💰 Allocation vs Rightful Share</div>
+                      <Card style={{marginBottom:14,border:"1px solid #D4E8C4",background:"#F8FBF6"}}>
+                        <div style={{fontSize:11,fontWeight:700,color:"#2A6840",textTransform:"uppercase",letterSpacing:".06em",marginBottom:14}}>💰 Final Allocation vs Rightful Share</div>
                         <div style={{overflowX:"auto"}}>
                           <table style={{width:"100%",fontSize:13,borderCollapse:"collapse"}}>
-                            <thead><tr style={{background:"#F5EDE6"}}>{["Heir","Fraction","Rightful","Allocated","Balance"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:h==="Heir"?"left":"right",fontWeight:700,color:"#6A5A48",fontSize:11,textTransform:"uppercase",letterSpacing:".04em",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+                            <thead>
+                              <tr style={{background:"#EEF8E8"}}>
+                                {["Name","Role","Fraction","Rightful","Allocated","Balance"].map(h=>(
+                                  <th key={h} style={{padding:"8px 10px",textAlign:h==="Name"?"left":"right",fontWeight:700,color:"#2A6840",fontSize:11,textTransform:"uppercase",letterSpacing:".04em",whiteSpace:"nowrap",borderBottom:"2px solid #A0C890"}}>{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
                             <tbody>
-                              {heirs.map((h,i)=>{const b=results.bal[h.id],pos=b>50,neg=b<-50,r=ROLE[h.role];return(
-                                <tr key={h.id} style={{background:i%2===0?"#FAF6EF":"#fff",borderBottom:"1px solid #EDE5D8"}}>
-                                  <td style={{padding:"9px 10px"}}><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:17}}>{r.emoji}</span><div><div style={{fontWeight:700}}>{h.name}</div><div style={{fontSize:10,color:r.color}}>{r.short}</div></div></div></td>
-                                  <td style={{padding:"9px 10px",textAlign:"right",fontWeight:700,color:"#2A6840"}}>{engine.fracs[h.id]||"0"}</td>
-                                  <td style={{padding:"9px 10px",textAlign:"right",color:"#5A4A38",whiteSpace:"nowrap"}}>{fmtOMR(results.right[h.id])}</td>
-                                  <td style={{padding:"9px 10px",textAlign:"right",fontWeight:700,whiteSpace:"nowrap"}}>{fmtOMR(results.alloc[h.id])}</td>
-                                  <td style={{padding:"9px 10px",textAlign:"right"}}><span style={{padding:"4px 8px",borderRadius:20,fontWeight:700,fontSize:11,whiteSpace:"nowrap",background:pos?"#FEE8E0":neg?"#E8F5EE":"#F0EDE6",color:pos?"#B03818":neg?"#2A6840":"#8A7060"}}>{pos?`▲ Owes ${fmtOMR(b)}`:neg?`▼ Gets ${fmtOMR(-b)}`:"✓ Even"}</span></td>
-                                </tr>
-                              );})}
+                              {allHeirs.map((h,i)=>{
+                                const b=results.balance[h.id];
+                                const pos=b>50,neg=b<-50;
+                                const fr=h.role==="wife"?"1/8":h.role==="son"?"7/64":"7/128";
+                                const rc=h.role==="wife"?"#7040A0":h.role==="son"?"#2A6840":"#B03818";
+                                return(
+                                  <tr key={h.id} style={{background:i%2===0?"#F8FBF6":"#fff",borderBottom:"1px solid #E0ECD8"}}>
+                                    <td style={{padding:"9px 10px",fontWeight:700}}>{h.name}</td>
+                                    <td style={{padding:"9px 10px",textAlign:"right",fontSize:11,color:rc,fontWeight:600}}>{h.role==="wife"?"Wife":h.role==="son"?"Son":"Daughter"}</td>
+                                    <td style={{padding:"9px 10px",textAlign:"right",fontWeight:800,color:"#1A4F2A",fontSize:14}}>{fr}</td>
+                                    <td style={{padding:"9px 10px",textAlign:"right",whiteSpace:"nowrap"}}>{fmt(results.rightful[h.id])}</td>
+                                    <td style={{padding:"9px 10px",textAlign:"right",fontWeight:700,whiteSpace:"nowrap"}}>{fmt(results.allocated[h.id])}</td>
+                                    <td style={{padding:"9px 10px",textAlign:"right"}}>
+                                      <span style={{padding:"3px 8px",borderRadius:20,fontWeight:700,fontSize:11,whiteSpace:"nowrap",background:pos?"#FEE8E0":neg?"#E8F5EE":"#F0EDE6",color:pos?"#B03818":neg?"#2A6840":"#8A7060"}}>
+                                        {pos?`▲ Owes ${fmt(b)}`:neg?`▼ Gets ${fmt(-b)}`:"✓ Even"}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
-                            <tfoot><tr style={{background:"#FFF8EE",borderTop:"2px solid #E8D898"}}><td colSpan={2} style={{padding:"9px 10px",fontWeight:700,color:"#6A4810"}}>Net Estate</td><td style={{padding:"9px 10px",textAlign:"right",fontWeight:800,color:"#6A4810",whiteSpace:"nowrap"}}>{fmtOMR(netEstate)}</td><td style={{padding:"9px 10px",textAlign:"right",fontWeight:800,color:"#6A4810",whiteSpace:"nowrap"}}>{fmtOMR(Object.values(results.alloc).reduce((a,b)=>a+b,0))}</td><td/></tr></tfoot>
+                            <tfoot>
+                              <tr style={{background:"#FFF8EE",borderTop:"2px solid #C8A840"}}>
+                                <td colSpan={3} style={{padding:"9px 10px",fontWeight:700,color:"#6A4810"}}>Total Estate</td>
+                                <td style={{padding:"9px 10px",textAlign:"right",fontWeight:800,color:"#6A4810",whiteSpace:"nowrap"}}>{fmt(estateNum,0)}</td>
+                                <td style={{padding:"9px 10px",textAlign:"right",fontWeight:800,color:"#6A4810",whiteSpace:"nowrap"}}>{fmt(Object.values(results.allocated).reduce((a,b)=>a+b,0),0)}</td>
+                                <td/>
+                              </tr>
+                            </tfoot>
                           </table>
                         </div>
                       </Card>
 
-                      {results.settlements.length>0&&(
+                      {results.settlements.length>0?(
                         <Card style={{marginBottom:14,border:"1px solid #E8D898",background:"#FFFBF0"}}>
-                          <div style={{...SL,color:"#6A4810",marginBottom:8}}>🤝 Settlement Payments Required</div>
+                          <div style={{fontSize:11,fontWeight:700,color:"#6A4810",textTransform:"uppercase",letterSpacing:".06em",marginBottom:12}}>🤝 Settlement Payments Required</div>
                           {results.settlements.map((s,i)=>(
                             <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",marginBottom:8,borderRadius:10,background:"#fff",border:"1px solid #E8D898"}}>
-                              <span style={{fontSize:18}}>{ROLE[s.fRole].emoji}</span>
-                              <div style={{flex:1,fontSize:14}}><span style={{fontWeight:700,color:ROLE[s.fRole].color}}>{s.from}</span><span style={{color:"#8A7060",margin:"0 8px"}}>pays</span><span style={{fontWeight:700,color:ROLE[s.tRole].color}}>{s.to}</span></div>
-                              <span style={{fontWeight:800,fontSize:15,color:"#6A4810",background:"#FFF3D0",padding:"4px 14px",borderRadius:20,border:"1px solid #D4A840",whiteSpace:"nowrap"}}>{fmtOMR(s.amount)}</span>
-                              <span style={{fontSize:18}}>{ROLE[s.tRole].emoji}</span>
+                              <span style={{fontSize:18}}>{s.fromRole==="wife"?"👩":s.fromRole==="son"?"👦":"👧"}</span>
+                              <div style={{flex:1,fontSize:14}}>
+                                <span style={{fontWeight:700}}>{s.from}</span>
+                                <span style={{color:"#8A7060",margin:"0 8px"}}>pays</span>
+                                <span style={{fontWeight:700}}>{s.to}</span>
+                              </div>
+                              <span style={{fontWeight:800,fontSize:15,color:"#6A4810",background:"#FFF3D0",padding:"4px 14px",borderRadius:20,border:"1px solid #D4A840",whiteSpace:"nowrap"}}>{fmt(s.amount)}</span>
+                              <span style={{fontSize:18}}>{s.toRole==="wife"?"👩":s.toRole==="son"?"👦":"👧"}</span>
                             </div>
                           ))}
                         </Card>
+                      ):(
+                        <Card style={{marginBottom:14,border:"1px solid #A0C8B0",background:"#EEF8F2"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:10,color:"#2A6840"}}>
+                            <span style={{fontSize:22}}>✅</span>
+                            <div><div style={{fontWeight:700}}>Balanced</div><div style={{fontSize:12,color:"#4A8860"}}>Allocations match Islamic shares. No settlement needed.</div></div>
+                          </div>
+                        </Card>
                       )}
-                      {results.settlements.length===0&&<Card style={{marginBottom:14,border:"1px solid #A0C8B0",background:"#EEF8F2"}}><div style={{display:"flex",alignItems:"center",gap:10,color:"#2A6840"}}><span style={{fontSize:22}}>✅</span><div><div style={{fontWeight:700}}>No settlement needed</div><div style={{fontSize:12,color:"#4A8860"}}>All allocations match Islamic shares.</div></div></div></Card>}
                     </>
                   )}
 
-                  <div style={{display:"flex",gap:10,justifyContent:"space-between",flexWrap:"wrap",marginTop:8}}>
-                    <Btn v="ghost" onClick={()=>setStep(4)}>← Lands</Btn>
-                    <Btn v="print" onClick={()=>setShowPrint(true)}>🖨️ Print / PDF Reports</Btn>
+                  <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
+                    <Btn v="ghost" onClick={()=>setStep(3)}>← Lands</Btn>
+                    <div style={{display:"flex",gap:8}}>
+                      {results&&<Btn v="print" sm onClick={()=>setShowPrint(true)}>🖨️ Print / PDF</Btn>}
+                      <Btn v="soft" sm onClick={()=>setStep(1)}>✏️ Edit Names</Btn>
+                    </div>
                   </div>
                 </div>
               )}

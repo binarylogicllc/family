@@ -90,8 +90,8 @@ const ROLE = {
   pgrandfather: {emoji:"🧓",  label:"Paternal Grandfather (جد)",         short:"P.Grandfather", color:"#5A6020",bg:"#F4F5E0",bd:"#B8C070", unique:true},
   mgrandmother: {emoji:"👩‍🦳",label:"Maternal Grandmother (جدة لأم)",   short:"M.Grandmother", color:"#6050A0",bg:"#EEEAF8",bd:"#B0A0D8", unique:true},
   pgrandmother: {emoji:"👩‍🦳",label:"Paternal Grandmother (جدة لأب)",   short:"P.Grandmother", color:"#7050A0",bg:"#F0EAF8",bd:"#C0A8E0", unique:true},
-  fullbrother:  {emoji:"🧑",  label:"Full Brother (أخ شقيق)",            short:"F.Brother",     color:"#205080",bg:"#E8F2FA",bd:"#88B8D8", unique:false},
-  fullsister:   {emoji:"👩",  label:"Full Sister (أخت شقيقة)",          short:"F.Sister",      color:"#802050",bg:"#FAE8F2",bd:"#D888B8", unique:false},
+  fullbrother:  {emoji:"🧑",  label:"Full Brother of Deceased (أخ شقيق)", short:"F.Brother",     color:"#205080",bg:"#E8F2FA",bd:"#88B8D8", unique:false},
+  fullsister:   {emoji:"👩",  label:"Full Sister of Deceased (أخت شقيقة)",short:"F.Sister",      color:"#802050",bg:"#FAE8F2",bd:"#D888B8", unique:false},
   consbrother:  {emoji:"🧑",  label:"Consanguine Brother (أخ لأب)",      short:"C.Brother",     color:"#306890",bg:"#E4EEF5",bd:"#78A8C8", unique:false},
   conssister:   {emoji:"👩",  label:"Consanguine Sister (أخت لأب)",      short:"C.Sister",      color:"#903050",bg:"#F5E4EE",bd:"#C878A8", unique:false},
   uterinesib:   {emoji:"🧑",  label:"Uterine Sibling (أخ/أخت لأم)",     short:"Uterine Sib.",  color:"#407070",bg:"#E8F5F5",bd:"#80C0C0", unique:false},
@@ -120,9 +120,9 @@ const CONFIRM_LIST = [
    note:"Gets 1/6 when mother is absent."},
   {key:"pgrandmother", critical:false, q:"Is the paternal grandmother alive (mother absent)?",
    note:"Gets 1/6 (shared with maternal grandmother if both present) when mother absent."},
-  {key:"fullbrother",  critical:false, q:"Are there any full brothers of the deceased?",
+  {key:"fullbrother",  critical:false, q:"Are there any full brothers of the deceased? (NOT his sons — his actual brothers)",
    note:"Blocked by sons, daughters, father. Reduces mother's share to 1/6."},
-  {key:"fullsister",   critical:false, q:"Are there any full sisters of the deceased?",
+  {key:"fullsister",   critical:false, q:"Are there any full sisters of the deceased? (NOT his daughters — his actual sisters)",
    note:"Blocked by sons, daughters, father."},
   {key:"consbrother",  critical:false, q:"Any consanguine (paternal half) brothers?",
    note:"Blocked if full brothers exist."},
@@ -798,7 +798,7 @@ function App(){
             <span style={{fontSize:22}}>🕌</span>
             <div>
               <div style={{fontWeight:800,fontSize:16}}>Islamic Inheritance — Oman</div>
-              <div style={{fontSize:10,color:"#A8907A"}}>حساب الميراث · Royal Decree 32/97 · {cfg.owner}/{cfg.repo}</div>
+              <div style={{fontSize:10,color:"#A8907A"}}>حساب الميراث الإسلامي · Husband died · Wife + Sons + Daughters · Oman RD 32/97 · {cfg.owner}/{cfg.repo}</div>
             </div>
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
@@ -825,7 +825,14 @@ function App(){
                 <div className="fade">
                   <div style={{marginBottom:16}}>
                     <div style={{fontWeight:700,fontSize:18,marginBottom:4}}>🏛️ Estate Information</div>
-                    <div style={{fontSize:13,color:"#8A7060"}}>Per Qur'an 4:11, shares apply to the <strong>net estate</strong> after debts and valid bequests.</div>
+                    <div style={{fontSize:13,color:"#8A7060",lineHeight:1.7}}>
+                      Per Qur'an 4:12, the wife's share — and all shares — apply to the <strong>net estate after debts and valid bequests</strong>.
+                      Gross assets are not divided directly.
+                    </div>
+                  </div>
+                  <div style={{padding:"12px 16px",background:"#F4F8FE",borderRadius:8,border:"1px solid #B0C8E0",marginBottom:16,fontSize:12,color:"#2A4060",lineHeight:1.8}}>
+                    <strong>⚖️ Governing rule:</strong> Muslim estates in Oman — Islamic Sharia per Oman's Basic Statute · Personal Status Law, Royal Decree 32/97 · Shares from Qur'an 4:11–12.<br/>
+                    <strong>This scenario:</strong> Husband passed away · Surviving wife (widow) + Sons + Daughters · Each son inherits twice each daughter's share.
                   </div>
                   <Card style={{marginBottom:14}}>
                     <div style={{...SL,marginBottom:14}}>Deceased</div>
@@ -883,28 +890,33 @@ function App(){
                     <div style={{fontWeight:700,fontSize:18,marginBottom:4}}>👨‍👩‍👧‍👦 Heir List</div>
                     <div style={{fontSize:13,color:"#8A7060"}}>Add <strong>every heir</strong>. In Islamic inheritance, adding or removing one heir changes everyone's share.</div>
                   </div>
-                  <div style={{padding:"10px 14px",background:"#F4F8FE",borderRadius:8,border:"1px solid #B0C8E0",marginBottom:14,fontSize:12,color:"#3A5A7A",lineHeight:1.7}}>
-                    <strong>📌 Scenario guide:</strong> If the <strong>father/husband died</strong> → add Surviving Wife/Mother + Sons + Daughters (+ any other surviving relatives below).
-                    If the <strong>mother/wife died</strong> → add Surviving Husband + Sons + Daughters.
+                  <div style={{padding:"12px 16px",background:"#EEF8F2",borderRadius:8,border:"2px solid #7DC49A",marginBottom:14,lineHeight:1.8}}>
+                    <div style={{fontWeight:700,fontSize:14,color:"#2A6840",marginBottom:6}}>✅ Your Scenario</div>
+                    <div style={{fontSize:13,color:"#2A4030"}}>
+                      The <strong>husband / father has passed away.</strong><br/>
+                      His heirs are: his <strong>wife (widow)</strong> + their <strong>sons</strong> + their <strong>daughters</strong>.<br/>
+                      The sons and daughters are heirs as <em>children of the deceased</em> — not as brothers/sisters.<br/>
+                      In Islamic inheritance law, they inherit as <strong>Sons (ابن)</strong> and <strong>Daughters (بنت)</strong>.
+                    </div>
                   </div>
                   <Card style={{marginBottom:14}}>
                     <div style={SL}>{editH?"✏️ Edit":"Add a Heir"}</div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
                       <Inp value={hName} onChange={setHName} placeholder="Full name" style={{flex:"1 1 150px"}}/>
                       <select value={hRole} onChange={e=>setHRole(e.target.value)} style={{flex:"1 1 210px",border:"1px solid #E0D4C0",borderRadius:8,padding:"9px 12px",fontSize:13,background:"#FDFAF5",color:"#2A2018"}}>
-                        <optgroup label="── Surviving Spouse ──">
+                        <optgroup label="── Main Heirs (Husband died) ──">
                           <option value="wife">{ROLE.wife.emoji} {ROLE.wife.label}</option>
+                          <option value="son">{ROLE.son.emoji} {ROLE.son.label}</option>
+                          <option value="daughter">{ROLE.daughter.emoji} {ROLE.daughter.label}</option>
+                        </optgroup>
+                        <optgroup label="── If wife died instead ──">
                           <option value="husband">{ROLE.husband.emoji} {ROLE.husband.label}</option>
                         </optgroup>
                         <optgroup label="── Parents of Deceased ──">
                           <option value="father">{ROLE.father.emoji} {ROLE.father.label}</option>
                           <option value="mother">{ROLE.mother.emoji} {ROLE.mother.label}</option>
                         </optgroup>
-                        <optgroup label="── Children ──">
-                          <option value="son">{ROLE.son.emoji} {ROLE.son.label}</option>
-                          <option value="daughter">{ROLE.daughter.emoji} {ROLE.daughter.label}</option>
-                        </optgroup>
-                        <optgroup label="── Grandchildren (Son's) ──">
+                        <optgroup label="── Grandchildren (Son's children) ──">
                           <option value="grandson">{ROLE.grandson.emoji} {ROLE.grandson.label}</option>
                           <option value="granddaughter">{ROLE.granddaughter.emoji} {ROLE.granddaughter.label}</option>
                         </optgroup>
@@ -913,7 +925,7 @@ function App(){
                           <option value="mgrandmother">{ROLE.mgrandmother.emoji} {ROLE.mgrandmother.label}</option>
                           <option value="pgrandmother">{ROLE.pgrandmother.emoji} {ROLE.pgrandmother.label}</option>
                         </optgroup>
-                        <optgroup label="── Siblings ──">
+                        <optgroup label="── Siblings of Deceased (only if no children) ──">
                           <option value="fullbrother">{ROLE.fullbrother.emoji} {ROLE.fullbrother.label}</option>
                           <option value="fullsister">{ROLE.fullsister.emoji} {ROLE.fullsister.label}</option>
                           <option value="consbrother">{ROLE.consbrother.emoji} {ROLE.consbrother.label}</option>
@@ -972,7 +984,14 @@ function App(){
                 <div className="fade">
                   <div style={{marginBottom:14}}>
                     <div style={{fontWeight:700,fontSize:18,marginBottom:4}}>✅ Confirm All Heirs</div>
-                    <div style={{fontSize:13,color:"#8A7060"}}>Answer <strong>every question</strong>. The result is provisional until all are confirmed. This is required for a Sharia-compliant calculation.</div>
+                    <div style={{fontSize:13,color:"#8A7060",lineHeight:1.7}}>
+                      Answer <strong>every question below</strong>. The result cannot be marked final until all are answered.<br/>
+                      In Islamic inheritance, one additional heir — especially father, mother, or a second wife — changes the entire distribution under the same Qur'anic rules.
+                    </div>
+                  </div>
+                  <div style={{padding:"10px 16px",background:"#FFF4EE",borderRadius:8,border:"1px solid #E8C090",marginBottom:14,fontSize:12,color:"#8A4020",lineHeight:1.7}}>
+                    <strong>Reminder — your scenario:</strong> The <strong>husband died</strong>. His wife is alive. Their sons and daughters are alive.
+                    The sons and daughters are heirs as <strong>children of the deceased</strong> — inheritance law does not call them brothers and sisters; it calls them <strong>sons (أبناء)</strong> and <strong>daughters (بنات)</strong>.
                   </div>
                   <Card style={{marginBottom:16}}>
                     <div style={{...SL,marginBottom:14}}>Heir Presence Checklist</div>

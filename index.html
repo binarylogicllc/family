@@ -13,19 +13,21 @@
   input,select,button{font-family:inherit}
   input:focus,select:focus{outline:2px solid #B03818;outline-offset:1px}
   table{border-collapse:collapse}
-  .pop{animation:pop .3s ease}
+  @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes pop{0%{transform:scale(.8);opacity:0}100%{transform:scale(1);opacity:1}}
+  .pop{animation:pop .3s ease}
+  .spin{display:inline-block;animation:spin 1s linear infinite}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useMemo, useEffect } = React;
+const { useState, useMemo, useEffect, useRef, useCallback } = React;
 
+// ── Local storage (token only — never share this) ─────────
 const LS = {
   get:(k,fb)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch{return fb;}},
   set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}},
-  del:(k)=>{try{localStorage.removeItem(k);}catch{}}
 };
 
 const uid = () => Math.random().toString(36).slice(2,8);
@@ -39,10 +41,66 @@ const ROLE = {
   daughter:{emoji:"👩‍🦱",label:"Sister",            color:"#B03818",bg:"#FAF0EB",bd:"#DA9070"},
 };
 
+// ── XML helpers ───────────────────────────────────────────
+function toXML(heirs, lands) {
+  const esc = s => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<inheritance>
+  <heirs>
+${heirs.map(h=>`    <heir id="${esc(h.id)}" name="${esc(h.name)}" role="${esc(h.role)}"/>`).join("\n")}
+  </heirs>
+  <lands>
+${lands.map(l=>`    <land id="${esc(l.id)}" name="${esc(l.name)}" value="${l.value}" location="${esc(l.loc||"")}"/>`).join("\n")}
+  </lands>
+</inheritance>`;
+}
+
+function fromXML(xmlStr) {
+  const doc = new DOMParser().parseFromString(xmlStr, "application/xml");
+  if (doc.querySelector("parsererror")) throw new Error("Invalid XML");
+  return {
+    heirs: [...doc.querySelectorAll("heir")].map(n=>({id:n.getAttribute("id")||uid(),name:n.getAttribute("name")||"",role:n.getAttribute("role")||"son"})),
+    lands: [...doc.querySelectorAll("land")].map(n=>({id:n.getAttribute("id")||uid(),name:n.getAttribute("name")||"",value:parseFloat(n.getAttribute("value"))||0,loc:n.getAttribute("location")||""})),
+  };
+}
+
+// ── GitHub API ────────────────────────────────────────────
+const DATA_FILE = "inheritance_data.xml";
+
+async function ghGet(cfg) {
+  const res = await fetch(
+    `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${DATA_FILE}`,
+    {headers:{"Authorization":`token ${cfg.token}`,"Accept":"application/vnd.github.v3+json"}}
+  );
+  if (res.status === 404) return null;          // file doesn't exist yet
+  if (!res.ok) throw new Error(`GitHub error ${res.status}`);
+  const json = await res.json();
+  return { content: atob(json.content.replace(/\n/g,"")), sha: json.sha };
+}
+
+async function ghPut(cfg, xmlStr, sha) {
+  const body = {
+    message: sha ? "Update inheritance data" : "Create inheritance data",
+    content: btoa(unescape(encodeURIComponent(xmlStr))),
+    ...(sha ? {sha} : {}),
+  };
+  const res = await fetch(
+    `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${DATA_FILE}`,
+    {method:"PUT",headers:{"Authorization":`token ${cfg.token}`,"Accept":"application/vnd.github.v3+json","Content-Type":"application/json"},body:JSON.stringify(body)}
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(()=>({}));
+    throw new Error(err.message || `GitHub error ${res.status}`);
+  }
+  const json = await res.json();
+  return json.content.sha;
+}
+
+// ── Islamic calculation ───────────────────────────────────
 function islamicShares(heirs){
   const father=heirs.find(h=>h.role==="father"),mother=heirs.find(h=>h.role==="mother");
   const sons=heirs.filter(h=>h.role==="son"),daus=heirs.filter(h=>h.role==="daughter");
-  const kids=[...sons,...daus];const out={};let pool=1;
+  const kids=[...sons,...daus]; const out={}; let pool=1;
   if(father){const s=kids.length?1/4:1/2;out[father.id]=s;pool-=s;}
   if(mother){const s=kids.length?1/8:1/4;out[mother.id]=s;pool-=s;}
   if(kids.length&&pool>0){
@@ -52,14 +110,10 @@ function islamicShares(heirs){
   }
   return out;
 }
-
-function divideLand(val,intIds,gs){
-  let tw=0;const ws={};
-  intIds.forEach(id=>{ws[id]=gs[id]||0;tw+=ws[id];});
-  const out={};intIds.forEach(id=>{out[id]=tw>0?(ws[id]/tw)*val:0;});
-  return out;
+function divideLand(val,ids,gs){
+  let tw=0;const ws={};ids.forEach(id=>{ws[id]=gs[id]||0;tw+=ws[id];});
+  const out={};ids.forEach(id=>{out[id]=tw>0?(ws[id]/tw)*val:0;});return out;
 }
-
 function settle(heirs,balance){
   const P=heirs.filter(h=>balance[h.id]>1).map(h=>({...h,amt:balance[h.id]}));
   const R=heirs.filter(h=>balance[h.id]<-1).map(h=>({...h,amt:-balance[h.id]}));
@@ -73,11 +127,11 @@ function settle(heirs,balance){
   return res;
 }
 
-// Primitives
+// ── UI primitives ─────────────────────────────────────────
 function Card({children,style={}}){return <div style={{background:"#fff",borderRadius:12,border:"1px solid #EAE0D0",boxShadow:"0 2px 10px rgba(0,0,0,.05)",padding:20,...style}}>{children}</div>;}
 function Btn({children,onClick,v="primary",disabled=false,sm=false}){
-  const base={border:"none",borderRadius:8,cursor:disabled?"not-allowed":"pointer",fontWeight:600,transition:"all .15s",fontSize:sm?12:14,padding:sm?"6px 12px":"10px 22px",opacity:disabled?.45:1};
-  const vs={primary:{background:"#B03818",color:"#fff"},ghost:{background:"transparent",color:"#B03818",border:"1px solid #B03818"},green:{background:"#2A6840",color:"#fff"},soft:{background:"#F5EDE6",color:"#B03818",border:"1px solid #E8C8B8"},grey:{background:"#F0EBE3",color:"#6A5A48",border:"1px solid #DDD4C4"}};
+  const base={border:"none",borderRadius:8,cursor:disabled?"not-allowed":"pointer",fontWeight:600,transition:"all .15s",fontSize:sm?12:14,padding:sm?"6px 12px":"10px 22px",opacity:disabled?.45:1,display:"inline-flex",alignItems:"center",gap:5};
+  const vs={primary:{background:"#B03818",color:"#fff"},ghost:{background:"transparent",color:"#B03818",border:"1px solid #B03818"},green:{background:"#2A6840",color:"#fff"},soft:{background:"#F5EDE6",color:"#B03818",border:"1px solid #E8C8B8"},grey:{background:"#F0EBE3",color:"#6A5A48",border:"1px solid #DDD4C4"},blue:{background:"#1A4F7A",color:"#fff"}};
   return <button onClick={disabled?undefined:onClick} style={{...base,...vs[v]}}>{children}</button>;
 }
 function Inp({value,onChange,placeholder,type="text",style={}}){
@@ -96,7 +150,7 @@ function StepBar({cur,go,heirs,lands}){
         const n=i+1,done=n<cur,active=n===cur,click=can[i]&&n!==cur;
         return(
           <div key={s} onClick={click?()=>go(n):undefined} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,flex:1,cursor:click?"pointer":"default"}}>
-            <div style={{width:30,height:30,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,background:done?"#2A6840":active?"#B03818":"#E8DDD0",color:done||active?"#fff":"#A8907A",boxShadow:active?"0 2px 8px rgba(176,56,24,.35)":"none",zIndex:1,position:"relative",border:click&&!active?"2px dashed #C4A090":"none"}}>
+            <div style={{width:30,height:30,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,background:done?"#2A6840":active?"#B03818":"#E8DDD0",color:done||active?"#fff":"#A8907A",boxShadow:active?"0 2px 8px rgba(176,56,24,.35)":"none",zIndex:1,position:"relative"}}>
               {done?"✓":n}
             </div>
             <span style={{fontSize:10,fontWeight:active?700:400,color:active?"#2A2018":"#B0907A"}}>{s}</span>
@@ -107,28 +161,148 @@ function StepBar({cur,go,heirs,lands}){
   );
 }
 
-function SavedPill({show}){
-  if(!show)return null;
-  return <span className="pop" style={{fontSize:11,color:"#2A6840",background:"#ECF6F0",border:"1px solid #7DC49A",borderRadius:20,padding:"2px 10px",marginLeft:8}}>✓ Saved</span>;
+// ── Sync status badge ─────────────────────────────────────
+function SyncBadge({status}){
+  const map={
+    idle:    null,
+    loading: {bg:"#EBF2FA",bd:"#90AEDE",c:"#2D5FA5",txt:"⟳ Loading…",   spin:true},
+    saving:  {bg:"#FFF8EE",bd:"#D4A840",c:"#8A6020",txt:"⟳ Saving…",    spin:true},
+    saved:   {bg:"#ECF6F0",bd:"#7DC49A",c:"#2A6840",txt:"✓ Saved to GitHub"},
+    error:   {bg:"#FEE8E0",bd:"#E4A090",c:"#B03818",txt:"⚠ Sync error"},
+  };
+  const m=map[status];
+  if(!m)return null;
+  return(
+    <span className="pop" style={{fontSize:11,fontWeight:600,background:m.bg,border:`1px solid ${m.bd}`,color:m.c,borderRadius:20,padding:"3px 12px",display:"inline-flex",alignItems:"center",gap:5}}>
+      {m.spin&&<span className="spin" style={{fontSize:13}}>⟳</span>}
+      {m.txt}
+    </span>
+  );
 }
 
-function App(){
-  const [step,setStep]=useState(1);
-  const [heirs,setHeirs]=useState(()=>LS.get("inh_heirs",[]));
-  const [lands,setLands]=useState(()=>LS.get("inh_lands",[]));
-  const [ints,setInts]=useState({});
+// ── GitHub Settings panel ─────────────────────────────────
+function GHSettings({cfg,onSave}){
+  const [token,setToken]=useState(cfg.token||"");
+  const [owner,setOwner]=useState(cfg.owner||"");
+  const [repo, setRepo] =useState(cfg.repo||"");
+  const [testing,setTesting]=useState(false);
+  const [testMsg,setTestMsg]=useState("");
 
-  // form states
+  async function testConnection(){
+    setTesting(true);setTestMsg("");
+    try{
+      const res=await fetch(`https://api.github.com/repos/${owner}/${repo}`,
+        {headers:{"Authorization":`token ${token}`}});
+      if(res.ok){setTestMsg("✅ Connected successfully!");}
+      else{setTestMsg(`❌ Error: ${res.status} — check token and repo name.`);}
+    }catch(e){setTestMsg("❌ Network error — check your internet connection.");}
+    setTesting(false);
+  }
+
+  return(
+    <div style={{maxWidth:520,margin:"40px auto",padding:"0 16px"}}>
+      <div style={{textAlign:"center",marginBottom:28}}>
+        <div style={{fontSize:36,marginBottom:8}}>🕌</div>
+        <div style={{fontWeight:800,fontSize:20,marginBottom:4}}>Islamic Inheritance Divider</div>
+        <div style={{fontSize:13,color:"#8A7060"}}>حساب الميراث الإسلامي</div>
+      </div>
+      <Card>
+        <div style={{...SL,color:"#1A4F7A",marginBottom:16}}>⚙️ GitHub Setup — One Time Only</div>
+        <div style={{fontSize:13,color:"#6A5A48",marginBottom:20,lineHeight:1.7,background:"#F4F8FE",padding:"12px 14px",borderRadius:8,border:"1px solid #C0D4E8"}}>
+          Your family data will be saved as a file inside your GitHub repo automatically — no imports or exports needed. Just set this up once.
+        </div>
+
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div>
+            <div style={{...SL,marginBottom:6}}>GitHub Repo Owner</div>
+            <Inp value={owner} onChange={setOwner} placeholder="e.g. binarylogicllc"/>
+            <div style={{fontSize:11,color:"#A8907A",marginTop:4}}>Your GitHub username or organisation name</div>
+          </div>
+          <div>
+            <div style={{...SL,marginBottom:6}}>Repository Name</div>
+            <Inp value={repo} onChange={setRepo} placeholder="e.g. family"/>
+            <div style={{fontSize:11,color:"#A8907A",marginTop:4}}>The repo where the app is hosted</div>
+          </div>
+          <div>
+            <div style={{...SL,marginBottom:6}}>Personal Access Token</div>
+            <Inp value={token} onChange={setToken} placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" type="password"/>
+            <div style={{fontSize:11,color:"#A8907A",marginTop:4,lineHeight:1.6}}>
+              Create at <strong>github.com → Settings → Developer settings → Personal access tokens → Fine-grained tokens</strong>.
+              <br/>Give it <strong>Contents: Read and Write</strong> permission on this repo only.
+            </div>
+          </div>
+        </div>
+
+        {testMsg&&<div className="pop" style={{marginTop:14,padding:"8px 14px",borderRadius:8,fontSize:13,background:testMsg.startsWith("✅")?"#ECF6F0":"#FEE8E0",border:`1px solid ${testMsg.startsWith("✅")?"#7DC49A":"#E4A090"}`,color:testMsg.startsWith("✅")?"#2A6840":"#B03818"}}>{testMsg}</div>}
+
+        <div style={{display:"flex",gap:10,marginTop:20}}>
+          <Btn v="grey" onClick={testConnection} disabled={!token||!owner||!repo||testing}>{testing?"Testing…":"Test Connection"}</Btn>
+          <Btn v="blue" onClick={()=>onSave({token,owner,repo})} disabled={!token||!owner||!repo}>Save & Continue →</Btn>
+        </div>
+      </Card>
+
+      <div style={{marginTop:16,padding:"12px 16px",background:"#FFF8EE",borderRadius:8,border:"1px solid #E8D898",fontSize:11,color:"#8A6020",lineHeight:1.7}}>
+        🔒 <strong>Your token is stored only in your browser</strong> (localStorage). It never leaves your device except to talk directly to GitHub's API. Use a fine-grained token with only the permissions listed above.
+      </div>
+    </div>
+  );
+}
+
+// ── Main App ──────────────────────────────────────────────
+function App(){
+  const [cfg,setCfg]=useState(()=>LS.get("gh_cfg",{}));
+  const [step,setStep]=useState(1);
+  const [heirs,setHeirs]=useState([]);
+  const [lands,setLands]=useState([]);
+  const [ints,setInts]=useState({});
+  const [fileSha,setFileSha]=useState(null);
+  const [sync,setSync]=useState("idle");
+  const [syncErr,setSyncErr]=useState("");
+  const saveTimer=useRef(null);
+
   const [hName,setHName]=useState("");const [hRole,setHRole]=useState("son");const [editH,setEditH]=useState(null);
   const [lName,setLName]=useState("");const [lVal,setLVal]=useState("");const [lLoc,setLLoc]=useState("");const [editL,setEditL]=useState(null);
-  const [svH,setSvH]=useState(false);const [svL,setSvL]=useState(false);
 
-  useEffect(()=>{LS.set("inh_heirs",heirs);if(heirs.length){setSvH(true);setTimeout(()=>setSvH(false),2000);}},[heirs]);
-  useEffect(()=>{LS.set("inh_lands",lands);if(lands.length){setSvL(true);setTimeout(()=>setSvL(false),2000);}},[lands]);
+  const isConfigured = !!(cfg.token && cfg.owner && cfg.repo);
+
+  // ── Load from GitHub on startup ───────────────────────
+  useEffect(()=>{
+    if(!isConfigured)return;
+    setSync("loading");
+    ghGet(cfg).then(result=>{
+      if(result){
+        try{
+          const {heirs:h,lands:l}=fromXML(result.content);
+          setHeirs(h);setLands(l);setFileSha(result.sha);
+          if(h.length>=2&&l.length>0)setStep(3);
+        }catch(e){setSyncErr("Could not parse saved data: "+e.message);}
+      }
+      setSync("idle");
+    }).catch(e=>{setSync("error");setSyncErr(e.message);});
+  },[isConfigured]);
+
+  // ── Auto-save to GitHub (debounced 1.5s) ─────────────
+  const autoSave = useCallback((h,l,sha)=>{
+    if(!isConfigured||(!h.length&&!l.length))return;
+    clearTimeout(saveTimer.current);
+    saveTimer.current=setTimeout(async()=>{
+      setSync("saving");
+      try{
+        const newSha=await ghPut(cfg,toXML(h,l),sha);
+        setFileSha(newSha);
+        setSync("saved");
+        setTimeout(()=>setSync("idle"),2500);
+      }catch(e){setSync("error");setSyncErr(e.message);}
+    },1500);
+  },[isConfigured,cfg]);
+
+  // Trigger save when heirs or lands change
+  useEffect(()=>{ if(isConfigured&&(heirs.length||lands.length)) autoSave(heirs,lands,fileSha); },[heirs,lands]);
+
+  function saveConfig(c){LS.set("gh_cfg",c);setCfg(c);}
 
   const shares=useMemo(()=>islamicShares(heirs),[heirs]);
   const estate=useMemo(()=>lands.reduce((s,l)=>s+l.value,0),[lands]);
-  const hasData=heirs.length>=2&&lands.length>0;
 
   function addHeir(){
     if(!hName.trim())return;
@@ -137,7 +311,6 @@ function App(){
   }
   function saveH(id){setHeirs(p=>p.map(h=>h.id===id?{...h,name:hName.trim(),role:hRole}:h));setEditH(null);setHName("");setHRole("son");}
   function startH(h){setEditH(h.id);setHName(h.name);setHRole(h.role);}
-
   function addLand(){
     const v=parseFloat(lVal);if(!lName.trim()||isNaN(v)||v<=0)return;
     setLands(p=>[...p,{id:uid(),name:lName.trim(),value:v,loc:lLoc.trim()}]);setLName("");setLVal("");setLLoc("");
@@ -147,7 +320,6 @@ function App(){
     setLands(p=>p.map(l=>l.id===id?{...l,name:lName.trim(),value:v,loc:lLoc.trim()}:l));setEditL(null);setLName("");setLVal("");setLLoc("");
   }
   function startL(l){setEditL(l.id);setLName(l.name);setLVal(String(l.value));setLLoc(l.loc||"");}
-
   function toggleInt(lid,hid){setInts(p=>({...p,[lid]:{...(p[lid]||{}),[hid]:!(p[lid]?.[hid])}}));}
 
   const results=useMemo(()=>{
@@ -165,10 +337,8 @@ function App(){
     return{alloc,right,bal,settlements:settle(heirs,bal),bdown};
   },[heirs,lands,ints,shares,estate]);
 
-  function clearAll(){
-    if(confirm("Delete all saved family members and lands?"))
-    {LS.del("inh_heirs");LS.del("inh_lands");setHeirs([]);setLands([]);setInts({});setStep(1);}
-  }
+  // ── Show setup screen if not configured ──────────────
+  if(!isConfigured) return <GHSettings cfg={cfg} onSave={saveConfig}/>;
 
   return(
     <div style={{background:"#FAF6EF",minHeight:"100vh",paddingBottom:60}}>
@@ -180,16 +350,26 @@ function App(){
             <span style={{fontSize:24}}>🕌</span>
             <div>
               <div style={{fontWeight:800,fontSize:17}}>Islamic Inheritance Divider</div>
-              <div style={{fontSize:11,color:"#A8907A"}}>حساب الميراث الإسلامي · Land allocation among heirs</div>
+              <div style={{fontSize:11,color:"#A8907A"}}>حساب الميراث الإسلامي · {cfg.owner}/{cfg.repo}</div>
             </div>
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-            {hasData&&<span style={{fontSize:11,color:"#2A6840",background:"#ECF6F0",border:"1px solid #7DC49A",borderRadius:20,padding:"3px 12px"}}>💾 {heirs.length} heirs · {lands.length} lands saved</span>}
-            {hasData&&<Btn sm v="soft" onClick={()=>setStep(3)}>↩ Continue</Btn>}
+            <SyncBadge status={sync}/>
+            {sync==="error"&&<span style={{fontSize:11,color:"#B03818"}}>{syncErr}</span>}
+            <Btn sm v="grey" onClick={()=>{LS.set("gh_cfg",{});setCfg({});}}>⚙️ Settings</Btn>
           </div>
         </div>
       </div>
 
+      {/* Loading state */}
+      {sync==="loading"&&(
+        <div style={{textAlign:"center",padding:"60px 20px",color:"#8A7060"}}>
+          <div style={{fontSize:32,marginBottom:12}} className="spin">⟳</div>
+          <div style={{fontWeight:600}}>Loading your data from GitHub…</div>
+        </div>
+      )}
+
+      {sync!=="loading"&&(
       <div style={{maxWidth:740,margin:"0 auto",padding:"0 16px"}}>
         <StepBar cur={step} go={setStep} heirs={heirs} lands={lands}/>
 
@@ -197,48 +377,41 @@ function App(){
         {step===1&&(
           <div>
             <div style={{marginBottom:16}}>
-              <div style={{fontWeight:700,fontSize:18,marginBottom:4}}>👨‍👩‍👧‍👦 Family Members <SavedPill show={svH}/></div>
-              <div style={{fontSize:13,color:"#8A7060"}}>Saved automatically to your browser. Add surviving parent(s) first, then brothers and sisters.</div>
+              <div style={{fontWeight:700,fontSize:18,marginBottom:4}}>👨‍👩‍👧‍👦 Family Members</div>
+              <div style={{fontSize:13,color:"#8A7060"}}>Changes save to GitHub automatically. Add surviving parent(s) first, then brothers and sisters.</div>
             </div>
-
             <Card style={{marginBottom:14}}>
-              <div style={SL}>{editH?"✏️ Edit Heir":"Add a Heir"}</div>
+              <div style={SL}>{editH?"✏️ Edit":"Add a Heir"}</div>
               <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
                 <Inp value={hName} onChange={setHName} placeholder="Full name" style={{flex:"1 1 150px"}}/>
                 <select value={hRole} onChange={e=>setHRole(e.target.value)}
                   style={{flex:"1 1 160px",border:"1px solid #E0D4C0",borderRadius:8,padding:"9px 12px",fontSize:14,background:"#FDFAF5",color:"#2A2018"}}>
                   {Object.entries(ROLE).map(([k,v])=><option key={k} value={k}>{v.emoji} {v.label}</option>)}
                 </select>
-                {editH
-                  ?<><Btn v="green" onClick={()=>saveH(editH)}>Save</Btn><Btn v="grey" sm onClick={()=>{setEditH(null);setHName("");setHRole("son");}}>Cancel</Btn></>
-                  :<Btn v="green" onClick={addHeir}>+ Add</Btn>
-                }
+                {editH?<><Btn v="green" onClick={()=>saveH(editH)}>Save</Btn><Btn v="grey" sm onClick={()=>{setEditH(null);setHName("");setHRole("son");}}>Cancel</Btn></>
+                      :<Btn v="green" onClick={addHeir}>+ Add</Btn>}
               </div>
             </Card>
-
             {heirs.length>0&&(
               <Card style={{marginBottom:20}}>
-                <div style={{...SL,marginBottom:14}}>Heirs ({heirs.length}) <SavedPill show={svH}/></div>
-                {heirs.map(h=>{
-                  const r=ROLE[h.role];
-                  return(
-                    <div key={h.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"#FAF6EF",borderRadius:8,border:`1px solid ${editH===h.id?"#B03818":"#EAE0D0"}`,marginBottom:8}}>
-                      <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <span style={{fontSize:20}}>{r.emoji}</span>
-                        <div>
-                          <div style={{fontWeight:700,fontSize:14}}>{h.name}</div>
-                          <div style={{fontSize:11,color:"#A8907A"}}>{r.label} · <span style={{color:r.color,fontWeight:700}}>{fmtPct(shares[h.id]||0)}</span></div>
-                        </div>
-                      </div>
-                      <div style={{display:"flex",gap:6}}>
-                        <button onClick={()=>startH(h)} style={{background:"none",border:"1px solid #DDD4C4",borderRadius:6,cursor:"pointer",color:"#8A7060",fontSize:13,padding:"3px 8px"}}>✏️</button>
-                        <button onClick={()=>setHeirs(p=>p.filter(x=>x.id!==h.id))} style={{background:"none",border:"none",cursor:"pointer",color:"#D4907A",fontSize:16}}>✕</button>
+                <div style={{...SL,marginBottom:14}}>Heirs ({heirs.length})</div>
+                {heirs.map(h=>{const r=ROLE[h.role];return(
+                  <div key={h.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"#FAF6EF",borderRadius:8,border:`1px solid ${editH===h.id?"#B03818":"#EAE0D0"}`,marginBottom:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <span style={{fontSize:20}}>{r.emoji}</span>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:14}}>{h.name}</div>
+                        <div style={{fontSize:11,color:"#A8907A"}}>{r.label} · <span style={{color:r.color,fontWeight:700}}>{fmtPct(shares[h.id]||0)}</span></div>
                       </div>
                     </div>
-                  );
-                })}
+                    <div style={{display:"flex",gap:6}}>
+                      <button onClick={()=>startH(h)} style={{background:"none",border:"1px solid #DDD4C4",borderRadius:6,cursor:"pointer",color:"#8A7060",fontSize:13,padding:"3px 8px"}}>✏️</button>
+                      <button onClick={()=>setHeirs(p=>p.filter(x=>x.id!==h.id))} style={{background:"none",border:"none",cursor:"pointer",color:"#D4907A",fontSize:16}}>✕</button>
+                    </div>
+                  </div>
+                );})}
                 <div style={{marginTop:12,padding:"12px 14px",background:"#F5EDE6",borderRadius:8,border:"1px solid #E8D4C0"}}>
-                  <div style={{fontSize:11,fontWeight:700,color:"#8A7060",marginBottom:8,textTransform:"uppercase",letterSpacing:".05em"}}>📖 Islamic Shares</div>
+                  <div style={{fontSize:11,fontWeight:700,color:"#8A7060",marginBottom:8,textTransform:"uppercase",letterSpacing:".05em"}}>📖 Islamic Shares Applied</div>
                   <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                     {heirs.map(h=>(
                       <div key={h.id} style={{background:ROLE[h.role].bg,border:`1px solid ${ROLE[h.role].bd}`,borderRadius:8,padding:"4px 12px",fontSize:12}}>
@@ -250,9 +423,7 @@ function App(){
                 </div>
               </Card>
             )}
-
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span style={{fontSize:11,color:"#A8907A"}}>💾 Saved in your browser</span>
+            <div style={{display:"flex",justifyContent:"flex-end"}}>
               <Btn onClick={()=>setStep(2)} disabled={heirs.length<2}>Next: Lands →</Btn>
             </div>
           </div>
@@ -262,34 +433,29 @@ function App(){
         {step===2&&(
           <div>
             <div style={{marginBottom:16}}>
-              <div style={{fontWeight:700,fontSize:18,marginBottom:4}}>🏡 Inherited Lands <SavedPill show={svL}/></div>
-              <div style={{fontSize:13,color:"#8A7060"}}>Saved automatically. Edit land values anytime if they change.</div>
+              <div style={{fontWeight:700,fontSize:18,marginBottom:4}}>🏡 Inherited Lands</div>
+              <div style={{fontSize:13,color:"#8A7060"}}>Changes save to GitHub automatically.</div>
             </div>
             <Card style={{marginBottom:14}}>
-              <div style={SL}>{editL?"✏️ Edit Land":"Add a Land"}</div>
+              <div style={SL}>{editL?"✏️ Edit":"Add a Land"}</div>
               <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
                 <Inp value={lName} onChange={setLName} placeholder="Land name" style={{flex:"2 1 140px"}}/>
                 <Inp value={lLoc}  onChange={setLLoc}  placeholder="Location (optional)" style={{flex:"2 1 130px"}}/>
                 <Inp value={lVal}  onChange={setLVal}  placeholder="Value in OMR" type="number" style={{flex:"1 1 110px"}}/>
-                {editL
-                  ?<><Btn v="green" onClick={()=>saveL(editL)}>Save</Btn><Btn v="grey" sm onClick={()=>{setEditL(null);setLName("");setLVal("");setLLoc("");}}>Cancel</Btn></>
-                  :<Btn v="green" onClick={addLand}>+ Add</Btn>
-                }
+                {editL?<><Btn v="green" onClick={()=>saveL(editL)}>Save</Btn><Btn v="grey" sm onClick={()=>{setEditL(null);setLName("");setLVal("");setLLoc("");}}>Cancel</Btn></>
+                      :<Btn v="green" onClick={addLand}>+ Add</Btn>}
               </div>
             </Card>
             {lands.length>0&&(
               <Card style={{marginBottom:20}}>
-                <div style={{...SL,marginBottom:14}}>Lands ({lands.length}) <SavedPill show={svL}/></div>
+                <div style={{...SL,marginBottom:14}}>Lands ({lands.length})</div>
                 {lands.map((l,i)=>(
                   <div key={l.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",background:i%2===0?"#FAF6EF":"#fff",borderRadius:8,border:`1px solid ${editL===l.id?"#B03818":"#EAE0D0"}`,marginBottom:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:10}}>
                       <span style={{fontSize:18}}>🗺️</span>
                       <div>
                         <div style={{fontWeight:700,fontSize:14}}>{l.name}</div>
-                        <div style={{fontSize:12,color:"#8A7060"}}>
-                          {l.loc&&<span style={{marginRight:8}}>📍{l.loc}</span>}
-                          <strong style={{color:"#B03818"}}>{fmtOMR(l.value)}</strong>
-                        </div>
+                        <div style={{fontSize:12,color:"#8A7060"}}>{l.loc&&<span style={{marginRight:8}}>📍{l.loc}</span>}<strong style={{color:"#B03818"}}>{fmtOMR(l.value)}</strong></div>
                       </div>
                     </div>
                     <div style={{display:"flex",gap:6}}>
@@ -316,7 +482,7 @@ function App(){
           <div>
             <div style={{marginBottom:16}}>
               <div style={{fontWeight:700,fontSize:18,marginBottom:4}}>☑️ Who Wants Which Land?</div>
-              <div style={{fontSize:13,color:"#8A7060"}}>Tap each person who wants a share. Live preview shows the split instantly.</div>
+              <div style={{fontSize:13,color:"#8A7060"}}>Tap each person who wants a share. Live preview updates instantly.</div>
             </div>
             <div style={{padding:"10px 14px",background:"#F0EDE6",borderRadius:8,border:"1px solid #E0D4C4",marginBottom:14,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
               <span style={{fontSize:11,fontWeight:700,color:"#8A7060",textTransform:"uppercase",letterSpacing:".05em"}}>Heirs:</span>
@@ -334,10 +500,7 @@ function App(){
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
                     <div>
                       <div style={{fontWeight:700,fontSize:16}}>🗺️ {land.name}</div>
-                      <div style={{fontSize:12,color:"#8A7060",marginTop:2}}>
-                        {land.loc&&<span style={{marginRight:8}}>📍{land.loc}</span>}
-                        <strong style={{color:"#B03818"}}>{fmtOMR(land.value)}</strong>
-                      </div>
+                      <div style={{fontSize:12,color:"#8A7060",marginTop:2}}>{land.loc&&<span style={{marginRight:8}}>📍{land.loc}</span>}<strong style={{color:"#B03818"}}>{fmtOMR(land.value)}</strong></div>
                     </div>
                     <div style={{textAlign:"right"}}>
                       <div style={{fontSize:10,color:"#A8907A"}}>Interested</div>
@@ -382,9 +545,8 @@ function App(){
           <div>
             <div style={{marginBottom:16}}>
               <div style={{fontWeight:700,fontSize:18,marginBottom:4}}>📊 Inheritance Results</div>
-              <div style={{fontSize:13,color:"#8A7060"}}>Islamic shares applied. Rightful = what each heir deserves from total estate.</div>
+              <div style={{fontSize:13,color:"#8A7060"}}>Islamic shares applied. Rightful = each heir's fair share of total estate.</div>
             </div>
-
             <Card style={{marginBottom:16}}>
               <div style={{...SL,marginBottom:14}}>💰 Per-Person Summary</div>
               <div style={{overflowX:"auto"}}>
@@ -401,12 +563,7 @@ function App(){
                       const b=results.bal[h.id],pos=b>50,neg=b<-50,r=ROLE[h.role];
                       return(
                         <tr key={h.id} style={{background:i%2===0?"#FAF6EF":"#fff",borderBottom:"1px solid #EDE5D8"}}>
-                          <td style={{padding:"10px"}}>
-                            <div style={{display:"flex",alignItems:"center",gap:8}}>
-                              <span style={{fontSize:18}}>{r.emoji}</span>
-                              <div><div style={{fontWeight:700}}>{h.name}</div><div style={{fontSize:11,color:r.color}}>{r.label}</div></div>
-                            </div>
-                          </td>
+                          <td style={{padding:"10px"}}><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:18}}>{r.emoji}</span><div><div style={{fontWeight:700}}>{h.name}</div><div style={{fontSize:11,color:r.color}}>{r.label}</div></div></div></td>
                           <td style={{padding:"10px",textAlign:"right",fontWeight:600,color:r.color,whiteSpace:"nowrap"}}>{fmtPct(shares[h.id]||0)}</td>
                           <td style={{padding:"10px",textAlign:"right",color:"#5A4A38",whiteSpace:"nowrap"}}>{fmtOMR(results.right[h.id])}</td>
                           <td style={{padding:"10px",textAlign:"right",fontWeight:700,whiteSpace:"nowrap"}}>{fmtOMR(results.alloc[h.id])}</td>
@@ -459,7 +616,7 @@ function App(){
             {results.settlements.length>0?(
               <Card style={{marginBottom:16,border:"1px solid #E8D898",background:"#FFFBF0"}}>
                 <div style={{...SL,color:"#6A4810",marginBottom:4}}>🤝 Settlement Payments Required</div>
-                <div style={{fontSize:12,color:"#8A7040",marginBottom:14}}>To equalise everyone's Islamic share, these cash payments are needed.</div>
+                <div style={{fontSize:12,color:"#8A7040",marginBottom:14}}>These cash payments balance everyone's Islamic share.</div>
                 {results.settlements.map((s,i)=>(
                   <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",marginBottom:8,borderRadius:10,background:"#fff",border:"1px solid #E8D898"}}>
                     <span style={{fontSize:18}}>{ROLE[s.fRole].emoji}</span>
@@ -480,19 +637,12 @@ function App(){
 
             <div style={{display:"flex",gap:10,justifyContent:"space-between",flexWrap:"wrap"}}>
               <Btn v="ghost" onClick={()=>setStep(3)}>← Adjust</Btn>
-              <div style={{display:"flex",gap:8}}>
-                <Btn v="soft" onClick={()=>setStep(3)}>New Scenario</Btn>
-                <Btn v="grey" sm onClick={clearAll}>🗑 Clear All</Btn>
-              </div>
+              <Btn v="soft" sm onClick={()=>setStep(3)}>New Scenario</Btn>
             </div>
           </div>
         )}
-
-        <div style={{marginTop:28,padding:"12px 16px",background:"#F0EDE6",borderRadius:8,border:"1px solid #E0D4C4",fontSize:11,color:"#A8907A",textAlign:"center",lineHeight:1.6}}>
-          💾 Family members &amp; lands are saved in your browser — they persist between visits on the same device.<br/>
-          Interest selections reset each session so you can freely run different scenarios.
-        </div>
       </div>
+      )}
     </div>
   );
 }
